@@ -147,10 +147,11 @@
         <div class="welcome">
           <h1>مرحباً، {{ $user->displayName() }}</h1>
           <div class="s">بوابة الجودة والامتثال التشغيلي</div>
-          <div class="banner">
+          <a href="{{ route('qms.map') }}" class="banner" style="display:block">
             <b>{!! $I('shield', 22) !!} منظومة الجودة</b>
             <p>إدارة موحدة لإجراءات الجودة، ومتابعة الالتزام، وتحسين الأداء في {{ $user->tenant?->name_ar }}.</p>
-          </div>
+            <p style="margin-top:6px;font-weight:700;color:#0f6e64">خريطة النظام ومصفوفة المسؤوليات ←</p>
+          </a>
         </div>
         <div class="kpis">
           @foreach ($D['kpis'] as $k)

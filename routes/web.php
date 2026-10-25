@@ -17,6 +17,9 @@ use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\KpiController;
 use App\Http\Controllers\OrderCheckController;
 use App\Http\Controllers\Portal\ComplaintPortalController;
+use App\Http\Controllers\Portal\FieldInspectionPortalController;
+use App\Http\Controllers\FieldInspectionController;
+use App\Http\Controllers\QmsMapController;
 use App\Http\Controllers\TemperatureController;
 use App\Http\Controllers\TrainingController;
 use App\Support\FormRegistry;
@@ -43,6 +46,17 @@ Route::prefix('c/{token}')
         Route::post('/', [ComplaintPortalController::class, 'store'])->middleware('throttle:5,1')->name('store');
         Route::get('/pharmacy', [ComplaintPortalController::class, 'pharmacy'])->middleware('throttle:20,1')->name('pharmacy');
         Route::get('/done', [ComplaintPortalController::class, 'thanks'])->name('thanks');
+    });
+
+// رابط التفتيش الميداني الشخصي للمفوض (بدون تسجيل دخول) · SH-012-F04
+Route::prefix('i/{token}')
+    ->where(['token' => '[A-Za-z0-9]{32}'])
+    ->name('field.')
+    ->group(function () {
+        Route::get('/', [FieldInspectionPortalController::class, 'show'])->name('form');
+        Route::post('/', [FieldInspectionPortalController::class, 'store'])->middleware('throttle:10,1')->name('store');
+        Route::get('/products', [FieldInspectionPortalController::class, 'products'])->middleware('throttle:90,1')->name('products');
+        Route::get('/pharmacies', [FieldInspectionPortalController::class, 'pharmacies'])->middleware('throttle:60,1')->name('pharmacies');
     });
 
 // المستخدم المسجل
@@ -176,5 +190,16 @@ Route::middleware(['auth', 'active'])->group(function () {
         // التدريب: تقرير الدورات والمحاضرين · سجل تدريب الموظف (SH-015)
         Route::get('/training', [TrainingController::class, 'index'])->name('training.index');
         Route::get('/training/employee', [TrainingController::class, 'employee'])->name('training.employee');
+
+        // خريطة نظام الجودة ومصفوفة المسؤوليات
+        Route::get('/qms-map', QmsMapController::class)->name('qms.map');
+
+        // التفتيش الميداني بالتفويض: السجل · المراجعة · المفوضون (SH-012-F04)
+        Route::get('/inspections/field', [FieldInspectionController::class, 'index'])->name('field.index');
+        Route::get('/inspections/field/{record}', [FieldInspectionController::class, 'show'])->whereNumber('record')->name('field.show');
+        Route::post('/inspections/field/{record}/review', [FieldInspectionController::class, 'review'])->whereNumber('record')->name('field.review');
+        Route::post('/inspections/delegates', [FieldInspectionController::class, 'storeDelegate'])->name('field.delegates.store');
+        Route::post('/inspections/delegates/{delegate}/toggle', [FieldInspectionController::class, 'toggleDelegate'])->whereNumber('delegate')->name('field.delegates.toggle');
+        Route::post('/inspections/delegates/{delegate}/renew', [FieldInspectionController::class, 'renewDelegate'])->whereNumber('delegate')->name('field.delegates.renew');
     });
 });

@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Http\Controllers\KpiController;
 use App\Http\Controllers\TemperatureController;
 use App\Http\Controllers\TrainingController;
+use App\Http\Controllers\FieldInspectionController;
 use App\Models\DecisionStatus;
 use App\Models\Document;
 use App\Models\DocumentLog;
@@ -108,7 +109,7 @@ class HomeDashboard
                         'links' => [['سجل الانحرافات', route('deviations.index')]], 'code' => 'SH-008'],
                     ['title' => 'التفتيش الذاتي', 'desc' => 'قوائم التفتيش وتقارير المراجعة الذاتية للمخزن', 'icon' => 'search', 'tone' => 'blue',
                         'url' => route('forms.page', 'inspection'), 'count' => $n($siYear) . ' تقرير هذا العام',
-                        'links' => [['تفتيش سريع', route('forms.page', 'inspection-quick')], ['التغطية', route('inspections.index')]], 'code' => 'SH-012'],
+                        'links' => [['تفتيش سريع', route('forms.page', 'inspection-quick')], ['التفتيش الميداني', route('field.index')], ['التغطية', route('inspections.index')]], 'code' => 'SH-012'],
                     ['title' => 'مراجعة الوثائق', 'desc' => 'مراجعة واعتماد الإجراءات والنماذج والأوصاف الوظيفية', 'icon' => 'file', 'tone' => 'blue',
                         'url' => route('documents.queue'), 'count' => $n($docPending) . ' قيد المراجعة', 'code' => 'SH-014'],
                     ['title' => 'سجل الوثائق', 'desc' => 'أرشيف الوثائق المعتمدة والسارية وإصداراتها', 'icon' => 'folder', 'tone' => 'green',
@@ -306,6 +307,9 @@ class HomeDashboard
         if ($manager && $decLate) $out->push(['n' => $decLate, 'tone' => 'warn', 'icon' => 'gear', 'title' => 'قرارات اجتماعات متأخرة',
             'sub' => "{$decLate} قرار تجاوز موعده", 'url' => route('decisions.index', ['status' => 'overdue'])]);
 
+        $field = FieldInspectionController::pending($u);
+        if ($field) $out->push(['n' => $field, 'tone' => 'bad', 'icon' => 'search', 'title' => 'تفتيش ميداني به عدم مطابقة',
+            'sub' => "{$field} فحص بانتظار مراجعتك", 'url' => route('field.index', ['only' => 'open'])]);
         if (! empty($tr['pending'])) $out->push(['n' => $tr['pending'], 'tone' => 'info', 'icon' => 'user', 'title' => 'تدريبات بانتظار اعتمادك',
             'sub' => "{$tr['pending']} محضر تدريب", 'url' => route('training.index')]);
         if (! empty($tr['effLate'])) $out->push(['n' => $tr['effLate'], 'tone' => 'warn', 'icon' => 'user', 'title' => 'متابعة فاعلية تدريب متأخرة',

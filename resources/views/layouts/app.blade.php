@@ -85,6 +85,9 @@
     @if ($me && $me->isSuperAdmin())
       <a href="{{ route('admin.tenants.index') }}" class="{{ request()->routeIs('admin.tenants.*') ? 'on' : '' }}">{!! \App\Support\Icon::svg('store', 19) !!}<span>العملاء</span></a>
     @endif
+    @if ($me && $me->tenant_id)
+      <a href="{{ route('qms.map') }}" class="{{ request()->routeIs('qms.map') ? 'on' : '' }}">{!! \App\Support\Icon::svg('chart', 19) !!}<span>خريطة الجودة</span></a>
+    @endif
     @if ($me && $me->isClientAdmin())
       <a href="{{ route('client.users.index') }}" class="{{ request()->routeIs('client.users.*') ? 'on' : '' }}">{!! \App\Support\Icon::svg('users', 19) !!}<span>المستخدمون</span></a>
     @endif
