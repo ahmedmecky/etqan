@@ -1,0 +1,102 @@
+/* إتقان · التنسيق العام */
+:root{
+  --bg:#f4f6f5; --card:#ffffff; --ink:#1c2826; --muted:#5f6f6c; --line:#dde3e1;
+  --brand:#0f5e5a; --brand-soft:#e3f0ee; --gold:#c08a1e; --gold-soft:#f8efdc;
+  --ok:#1e7a46; --ok-soft:#e4f4ea; --warn:#9a6300; --warn-soft:#fdf1dc;
+  --bad:#b3261e; --bad-soft:#fbe7e5; --radius:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Cairo","Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.6;min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--brand)}
+
+/* الترويسة */
+header.top{background:var(--brand);color:#fff;padding:10px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff}
+.brand svg{flex-shrink:0}
+.brand-txt{display:flex;flex-direction:column;line-height:1.1}
+.brand-row{display:flex;align-items:baseline;gap:8px}
+.brand-ar{font-family:"Reem Kufi","Cairo",sans-serif;font-weight:700;font-size:24px;line-height:1}
+.brand-en{font-size:12px;font-weight:600;letter-spacing:3px;color:#d7e7e4}
+.slogan{font-size:12px;font-weight:700;color:#e0b24a;margin-top:3px}
+.tenant{display:flex;align-items:center;gap:10px;padding-inline-start:16px;border-inline-start:1px solid rgba(255,255,255,.25)}
+.tenant img{height:40px;width:auto;background:#fff;border-radius:6px;padding:3px}
+.tenant b{font-size:15px;display:block;line-height:1.2}
+.tenant span{font-size:12px;color:#d7e7e4}
+nav.main{display:flex;gap:4px;flex:1;flex-wrap:wrap}
+nav.main a{color:#e7f2f0;text-decoration:none;padding:6px 12px;border-radius:8px;font-weight:600;font-size:14px}
+nav.main a:hover{background:rgba(255,255,255,.12)}
+nav.main a.on{background:#fff;color:var(--brand)}
+.who{display:flex;align-items:center;gap:12px}
+.who .u{text-align:left;line-height:1.25}
+.who .u b{display:block;font-size:14px}
+.who .u span{font-size:12px;color:#d7e7e4}
+.who a,.who button{color:#fff;background:transparent;border:1px solid rgba(255,255,255,.4);border-radius:8px;padding:5px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none}
+.who a:hover,.who button:hover{background:rgba(255,255,255,.12)}
+
+/* المحتوى */
+main.wrap{max-width:1360px;width:100%;margin:0 auto;padding:22px 20px;flex:1}
+.page-title{font-size:20px;margin:0 0 4px}
+.page-sub{font-size:14px;color:var(--muted);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px}
+.card h2{font-size:17px;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.tile{display:block;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;text-decoration:none;color:var(--ink);transition:box-shadow .12s,border-color .12s}
+.tile:hover{border-color:#b9d8d3;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.tile b{display:block;font-size:16px;color:var(--brand);margin-bottom:4px}
+.tile span{font-size:13px;color:var(--muted)}
+.tile.soon{opacity:.6;cursor:default}
+.tile.soon b::after{content:" · قريباً";font-size:12px;color:var(--gold);font-weight:600}
+
+/* النماذج */
+label.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px;font-weight:600}
+.req::after{content:" *";color:var(--bad)}
+input[type=text],input[type=email],input[type=password],input[type=date],input[type=number],input[type=tel],select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--brand-soft);border-color:var(--brand)}
+input.ltr{direction:ltr;text-align:right}
+.field{margin-bottom:14px}
+.field .err{color:var(--bad);font-size:12.5px;margin-top:4px}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px}
+.chk input{width:17px;height:17px;accent-color:var(--brand)}
+.btn{display:inline-block;background:var(--brand);color:#fff;border:1px solid var(--brand);border-radius:8px;padding:9px 20px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
+.btn.ghost{background:#fff;color:var(--brand)}
+.btn.gold{background:var(--gold);border-color:var(--gold)}
+.btn.danger{background:#fff;color:var(--bad);border-color:#e3b0ac}
+.btn.block{width:100%;text-align:center}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* الرسائل */
+.alert{border-radius:8px;padding:10px 14px;font-size:14px;margin-bottom:16px}
+.alert.ok{background:var(--ok-soft);color:var(--ok);font-weight:600}
+.alert.bad{background:var(--bad-soft);color:var(--bad)}
+.alert.bad ul{margin:4px 0 0;padding-inline-start:18px}
+.alert.info{background:var(--brand-soft);color:#24514d}
+
+/* الجداول */
+.tbl-wrap{overflow-x:auto}
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t th{background:#fafbfb;color:var(--muted);font-weight:600;padding:9px 8px;text-align:start;border-bottom:1px solid var(--line);white-space:nowrap;font-size:13px}
+table.t td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.badge{display:inline-block;padding:2px 12px;border-radius:999px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.b-ok{background:var(--ok-soft);color:var(--ok)}
+.b-bad{background:var(--bad-soft);color:var(--bad)}
+.b-mute{background:#eef0f0;color:#6b7876}
+.ltr{direction:ltr;unicode-bidi:isolate;display:inline-block}
+
+footer.foot{text-align:center;font-size:12px;color:var(--muted);padding:14px}
+
+/* صفحة الدخول */
+.login-page{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,#0f5e5a 0%,#0f5e5a 38%,var(--bg) 38%)}
+.login-card{background:#fff;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.12);width:100%;max-width:420px;padding:30px 30px 24px}
+.login-brand{text-align:center;margin-bottom:18px}
+.login-brand .ar{font-family:"Reem Kufi","Cairo",sans-serif;font-size:34px;font-weight:700;color:var(--brand);line-height:1;margin-top:8px}
+.login-brand .en{font-size:12px;letter-spacing:4px;color:var(--muted);font-weight:600}
+.login-brand .sl{font-size:13px;color:var(--gold);font-weight:700;margin-top:4px}
+.login-card h1{font-size:18px;margin:0 0 16px;text-align:center}
+
+@media (max-width:760px){
+  header.top{gap:10px}
+  .tenant{border:0;padding:0}
+  .who .u{display:none}
+}
