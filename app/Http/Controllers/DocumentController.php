@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Document;
 use App\Models\DocumentLog;
 use App\Models\DocumentVersion;
+use App\Models\TenantJob;
 use App\Support\DocFlow;
-use App\Support\InspectionBank;
-use App\Support\KpiSets;
+use App\Support\DocLibrary;
+use App\Support\JobLibrary;
+use App\Support\SopLibrary;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -20,6 +22,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * التحكم في الوثائق (SH-014): السجل · قائمة الانتظار · الإصدارات والاعتماد
+ * الإصدار إما ملف مرفوع، أو نص مدمج من مكتبة إتقان (إجراء · وصف وظيفي · مؤشرات) يملأ المخزن فراغاته ويطبعه بشعاره.
  */
 class DocumentController extends Controller
 {
@@ -63,6 +66,12 @@ class DocumentController extends Controller
             ],
             'canManage' => DocFlow::canManage($request->user()),
             'waiting'   => DocFlow::waiting($request->user()),
+            'lib'       => [
+                'missing' => count(array_diff_key(DocLibrary::catalog(), $docs->keyBy('code')->all())),
+                'empty'   => $docs->filter(fn ($d) => $d->is_active && $d->versions->isEmpty() && DocLibrary::has($d))->count(),
+                'drafts'  => DocumentVersion::query()->where('prepared_by', $request->user()->id)->where('source', 'library')
+                    ->whereIn('stage', ['draft', 'returned'])->count(),
+            ],
         ]);
     }
 
@@ -85,6 +94,7 @@ class DocumentController extends Controller
             'drafts'   => $drafts,
             'stages'   => $stages,
             'labels'   => DocFlow::STEP_LABEL,
+            'nextOf'   => fn (DocumentVersion $v) => DocFlow::next($v->stage, $v->document->type, $user->tenant_id),
         ]);
     }
 
@@ -116,6 +126,10 @@ class DocumentController extends Controller
             'canPrepare' => DocFlow::canPrepare($user, $w),
             'canAct'     => $w && DocFlow::canAct($user, $w->stage),
             'nextVer'    => DocFlow::nextVersion($document),
+            'hasLib'     => DocLibrary::has($document),
+            'libVer'     => DocLibrary::version($document),
+            'hasBlanks'  => DocLibrary::hasBlanks($document),
+            'blanks'     => $w && $w->isLibrary() && $document->type === 'sop' ? $this->blankStats($document, $w) : null,
         ]);
     }
 
@@ -181,8 +195,11 @@ class DocumentController extends Controller
             'edit_note'      => [$asReviewer ? 'required' : 'nullable', 'string', 'max:1000'],
         ], $this->messages() + ['edit_note.required' => 'اكتب ما الذي عدلته في الملف.']);
 
-        $old = $version->file_name;
+        $old = $version->file_name ?: ($version->isLibrary() ? 'نص مكتبة إتقان' : '');
         $this->storeFile($request, $document, $version);
+        if ($version->isLibrary()) {
+            $version->update(['source' => 'file']);     // تعديل أكبر من الفراغات: يصبح الإصدار ملفاً مرفوعاً
+        }
         if (! empty($data['change_summary'])) {
             $version->update(['change_summary' => $data['change_summary']]);
         }
@@ -197,17 +214,43 @@ class DocumentController extends Controller
     {
         $this->own($document, $version);
         abort_unless(DocFlow::canPrepare($request->user(), $version), 403);
-        if (! $version->file_path) {
+        if (! $version->file_path && ! $version->isLibrary()) {
             return back()->withErrors(['file' => 'ارفع ملف الإصدار أولاً.']);
         }
         if (! trim((string) $version->change_summary)) {
             return back()->withErrors(['change_summary' => 'اكتب ملخص التعديل.']);
         }
 
-        $version->update(['stage' => 'qa', 'submitted_at' => now(), 'approvals' => [], 'return_note' => null]);
-        $this->log($document, $version, 'إرسال للمراجعة', 'إلى ' . DocFlow::STEP_LABEL['qa']);
+        $this->doSubmit($document, $version);
 
         return back()->with('status', 'تم الإرسال لمدير إدارة الجودة.');
+    }
+
+    /** إرسال كل مسوداتي من المكتبة دفعة واحدة */
+    public function submitAll(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $list = DocumentVersion::query()->with('document')->where('prepared_by', $user->id)->where('source', 'library')
+            ->whereIn('stage', ['draft', 'returned'])->get();
+        $n = 0;
+        foreach ($list as $v) {
+            if ($v->document && $v->document->is_active && DocFlow::canPrepare($user, $v) && trim((string) $v->change_summary) !== '') {
+                $this->doSubmit($v->document, $v);
+                $n++;
+            }
+        }
+
+        return back()->with('status', $n ? "تم إرسال {$n} وثيقة لمدير إدارة الجودة." : 'لا توجد مسودات من المكتبة للإرسال.');
+    }
+
+    private function doSubmit(Document $document, DocumentVersion $version): void
+    {
+        // الوصف الوظيفي: تُحفظ فراغاته كما هي وقت الإرسال (من شاشة الهيكل الوظيفي)
+        if ($version->isLibrary() && $document->type === 'jd') {
+            $version->fills = TenantJob::query()->where('job_code', $document->code)->value('blanks') ?? [];
+        }
+        $version->fill(['stage' => 'qa', 'submitted_at' => now(), 'approvals' => [], 'return_note' => null])->save();
+        $this->log($document, $version, 'إرسال للمراجعة', 'إلى ' . DocFlow::STEP_LABEL['qa']);
     }
 
     /** اعتماد المرحلة الحالية */
@@ -218,7 +261,42 @@ class DocumentController extends Controller
         $stage = $version->stage;
         abort_unless(DocFlow::canAct($user, $stage), 403, 'هذه المرحلة ليست من صلاحيتك.');
         $comment = mb_substr(trim((string) $request->input('comment')), 0, 1000);
+        $next = $this->doApprove($request->user(), $document, $version, $comment);
 
+        return redirect()->route('documents.queue')->with('status', $next
+            ? "تم الاعتماد. أُرسلت الوثيقة {$document->code} إلى " . DocFlow::STEP_LABEL[$next] . '.'
+            : "تم الاعتماد النهائي. الإصدار {$version->version} من {$document->code} ساري من اليوم.");
+    }
+
+    /** اعتماد عدة وثائق من قائمة الانتظار دفعة واحدة (نفس المرحلة لكل منها) */
+    public function approveBulk(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $ids = array_map('intval', (array) $request->input('ids', []));
+        if (! $ids) {
+            return back()->withErrors(['ids' => 'اختر الوثائق التي تريد اعتمادها.']);
+        }
+        $comment = mb_substr(trim((string) $request->input('comment')), 0, 1000);
+        $done = 0;
+        $final = 0;
+        foreach (DocumentVersion::query()->with('document')->whereIn('id', $ids)->get() as $v) {
+            if (! $v->document || ! DocFlow::canAct($user, $v->stage)) {
+                continue;
+            }
+            $next = $this->doApprove($user, $v->document, $v, $comment);
+            $done++;
+            $final += $next ? 0 : 1;
+        }
+
+        return back()->with('status', $done
+            ? "تم اعتماد {$done} وثيقة" . ($final ? " (منها {$final} اعتماد نهائي وأصبحت سارية)" : '') . '.'
+            : 'لم يتم اعتماد أي وثيقة (ليست في مرحلتك).');
+    }
+
+    /** تنفيذ الاعتماد: يرجع المرحلة التالية أو null عند الاعتماد النهائي */
+    private function doApprove($user, Document $document, DocumentVersion $version, string $comment): ?string
+    {
+        $stage = $version->stage;
         $approvals = $version->approvals ?? [];
         $approvals[] = ['step' => $stage, 'user_id' => $user->id, 'name' => $user->displayName(), 'role' => $user->role?->name_ar, 'at' => now('Africa/Cairo')->format('Y-m-d H:i'), 'comment' => $comment];
         $next = DocFlow::next($stage, $document->type, $user->tenant_id);
@@ -244,9 +322,7 @@ class DocumentController extends Controller
         $this->log($document, $version, $next ? 'اعتماد' : 'اعتماد نهائي وسريان',
             DocFlow::STEP_LABEL[$stage] . ($next ? ' ← ' . DocFlow::STEP_LABEL[$next] : '') . ($comment ? ' · ' . $comment : ''));
 
-        return redirect()->route('documents.queue')->with('status', $next
-            ? "تم الاعتماد. أُرسلت الوثيقة {$document->code} إلى " . DocFlow::STEP_LABEL[$next] . '.'
-            : "تم الاعتماد النهائي. الإصدار {$version->version} من {$document->code} ساري من اليوم.");
+        return $next;
     }
 
     /** إعادة للمُعد مع التعليق */
@@ -280,32 +356,198 @@ class DocumentController extends Controller
     public function download(Document $document, DocumentVersion $version): StreamedResponse
     {
         $this->own($document, $version);
-        abort_unless($version->file_path && Storage::disk('local')->exists($version->file_path), 404);
+        abort_unless($version->file_path && Storage::disk('local')->exists($version->file_path), 404, 'هذا الإصدار نص من مكتبة إتقان: استخدم «طباعة».');
 
         return Storage::disk('local')->download($version->file_path, $version->file_name);
     }
 
-    /** تحميل قائمة الإجراءات SH-001..SH-034 ومجموعات المؤشرات في السجل */
+    /** تحميل مكتبة إتقان في السجل: ٣٤ إجراء · الأوصاف الوظيفية · مجموعات مؤشرات الأداء */
     public function seed(Request $request): RedirectResponse
     {
         abort_unless(DocFlow::canManage($request->user()), 403);
         $tenantId = $request->user()->tenant_id;
         $have = Document::query()->pluck('code')->all();
         $n = 0;
-        foreach (InspectionBank::BANK as $code => $p) {
+        foreach (DocLibrary::catalog() as $code => $d) {
             if (! in_array($code, $have, true)) {
-                Document::create(['tenant_id' => $tenantId, 'code' => $code, 'type' => 'sop', 'title' => $p['title']]);
-                $n++;
-            }
-        }
-        foreach (KpiSets::SETS as $s) {
-            if (! in_array($s['code'], $have, true)) {
-                Document::create(['tenant_id' => $tenantId, 'code' => $s['code'], 'type' => 'kpi', 'title' => 'مؤشرات أداء ' . $s['title']]);
+                Document::create(['tenant_id' => $tenantId, 'code' => $code, 'type' => $d['type'], 'title' => $d['title'], 'dept' => $d['dept']]);
                 $n++;
             }
         }
 
-        return back()->with('status', $n ? "تمت إضافة {$n} وثيقة للسجل. ارفع ملف كل منها وأرسله للمراجعة." : 'كل الإجراءات والمؤشرات موجودة بالفعل في السجل.');
+        return back()->with('status', $n ? "تمت إضافة {$n} وثيقة من مكتبة إتقان للسجل. أنشئ مسوداتها من المكتبة ثم أرسلها للمراجعة." : 'كل وثائق مكتبة إتقان موجودة بالفعل في السجل.');
+    }
+
+    /* ===================== مكتبة إتقان ===================== */
+
+    /** إصدار جديد من نص المكتبة (بدون ملف) */
+    public function startLibrary(Request $request, Document $document): RedirectResponse
+    {
+        abort_if($document->working(), 422, 'يوجد إصدار جارٍ لهذه الوثيقة.');
+        abort_unless($document->is_active && DocLibrary::has($document), 422, 'لا يوجد نص لهذه الوثيقة في مكتبة إتقان.');
+        $first = ! $document->versions()->exists();
+        if (preg_match('/^\d{1,3}$/', (string) $request->input('version'))) {
+            $request->merge(['version' => str_pad((string) (int) $request->input('version'), 2, '0', STR_PAD_LEFT)]);
+        }
+        $data = $request->validate([
+            'version'        => ['required', 'regex:/^\d{1,3}$/', Rule::unique('document_versions', 'version')->where('document_id', $document->id)],
+            'change_summary' => ['required', 'string', 'max:2000'],
+        ], $this->messages());
+
+        $v = $this->createLibraryVersion($request, $document, $data['version'], $data['change_summary'], $first);
+
+        return redirect()->route($document->type === 'sop' && DocLibrary::hasBlanks($document) ? 'documents.fills' : 'documents.show',
+            $document->type === 'sop' && DocLibrary::hasBlanks($document) ? [$document, $v] : $document)
+            ->with('status', "تم إنشاء الإصدار {$v->version} من نص مكتبة إتقان." . ($document->type === 'sop' ? ' املأ الفراغات ثم أرسله للمراجعة.' : ' راجعه ثم أرسله.'));
+    }
+
+    /** مسودات من المكتبة لكل الوثائق التي ليس لها أي إصدار بعد */
+    public function libraryAll(Request $request): RedirectResponse
+    {
+        abort_unless(DocFlow::canManage($request->user()), 403);
+        $n = 0;
+        foreach (Document::query()->with('versions')->where('is_active', true)->get() as $d) {
+            if ($d->versions->isEmpty() && DocLibrary::has($d)) {
+                $this->createLibraryVersion($request, $d, DocLibrary::version($d), 'إصدار أول في المخزن من نص مكتبة إتقان (الإصدار ' . DocLibrary::version($d) . ').', true);
+                $n++;
+            }
+        }
+
+        return back()->with('status', $n ? "تم إنشاء {$n} مسودة من مكتبة إتقان. املأ فراغات الإجراءات ثم «أرسل كل مسوداتي للمراجعة»." : 'لا توجد وثائق من المكتبة بدون إصدار.');
+    }
+
+    private function createLibraryVersion(Request $request, Document $document, string $version, string $summary, bool $first): DocumentVersion
+    {
+        $v = DocumentVersion::create([
+            'tenant_id'      => $document->tenant_id,
+            'document_id'    => $document->id,
+            'version'        => $version,
+            'stage'          => 'draft',
+            'source'         => 'library',
+            'lib_version'    => DocLibrary::version($document),
+            'fills'          => $this->previousFills($document),
+            'change_summary' => $summary,
+            'prepared_by'    => $request->user()->id,
+        ]);
+        $this->log($document, $v, 'إنشاء إصدار', "الإصدار {$v->version} · نص مكتبة إتقان " . DocLibrary::version($document) . ($first ? '' : ' (فراغات الإصدار السابق)'));
+
+        return $v;
+    }
+
+    /** فراغات آخر إصدار من المكتبة (لا يعيد المخزن ملأها عند المراجعة الدورية) */
+    private function previousFills(Document $document): array
+    {
+        return $document->versions()->where('source', 'library')->orderByDesc('id')->value('fills') ?? [];
+    }
+
+    /** شاشة ملء الفراغات */
+    public function fills(Request $request, Document $document, DocumentVersion $version): View
+    {
+        $this->own($document, $version);
+        $sop = SopLibrary::get($document->code);
+        abort_unless($sop && $version->isLibrary() && $document->type === 'sop', 404);
+        $user = $request->user();
+        $tenant = $user->tenant;
+        $values = $version->fills ?? [];
+
+        $items = collect(SopLibrary::placeholders($sop))->map(fn ($p, $i) => $p + [
+            'i'     => $i,
+            'value' => array_key_exists($i, $values) ? (string) $values[$i] : SopLibrary::defaultFor($p['raw'], $tenant),
+            'unit'  => SopLibrary::unit($p['raw']),
+            'set'   => array_key_exists($i, $values) && trim((string) $values[$i]) !== '',
+        ]);
+
+        return view('documents.fills', [
+            'doc'      => $document,
+            'v'        => $version,
+            'groups'   => $items->groupBy('sec'),
+            'count'    => $items->count(),
+            'editable' => $this->canEditFills($user, $version),
+        ]);
+    }
+
+    public function saveFills(Request $request, Document $document, DocumentVersion $version): RedirectResponse
+    {
+        $this->own($document, $version);
+        abort_unless($version->isLibrary() && $document->type === 'sop' && $this->canEditFills($request->user(), $version), 403);
+        $sop = SopLibrary::get($document->code) ?? abort(404);
+        $n = count(SopLibrary::placeholders($sop));
+        $data = $request->validate(['f' => ['array'], 'f.*' => ['nullable', 'string', 'max:300']]);
+
+        $fills = [];
+        for ($i = 0; $i < $n; $i++) {
+            $fills[$i] = trim((string) ($data['f'][$i] ?? ''));
+        }
+        $changed = collect($fills)->filter(fn ($v, $i) => $v !== (string) (($version->fills ?? [])[$i] ?? ''))->count();
+        $version->update(['fills' => $fills]);
+        if ($changed) {
+            $this->log($document, $version, DocFlow::canAct($request->user(), $version->stage) ? 'تعديل بواسطة المراجع' : 'ملء الفراغات', "{$changed} فراغ");
+        }
+
+        return redirect()->route('documents.show', $document)->with('status', 'تم حفظ الفراغات.' . ($changed ? " ({$changed} تعديل)" : ''));
+    }
+
+    private function canEditFills($user, DocumentVersion $v): bool
+    {
+        return DocFlow::canPrepare($user, $v) || DocFlow::canAct($user, $v->stage);
+    }
+
+    private function blankStats(Document $document, DocumentVersion $v): array
+    {
+        $sop = SopLibrary::get($document->code);
+        $all = $sop ? SopLibrary::placeholders($sop) : [];
+        $tenant = request()->user()->tenant;
+        $empty = 0;
+        foreach ($all as $i => $p) {
+            $val = trim((string) (($v->fills ?? [])[$i] ?? ''));
+            if ($val === '' && SopLibrary::defaultFor($p['raw'], $tenant) === '') {
+                $empty++;
+            }
+        }
+
+        return ['total' => count($all), 'empty' => $empty];
+    }
+
+    /* ===================== الطباعة ===================== */
+
+    /**
+     * طباعة الوثيقة بشعار المخزن: الإصدار الساري (افتراضياً) أو إصدار محدد ?v= · نموذج واحد فارغ ?form=SH-001-F02
+     */
+    public function print(Request $request, Document $document): View|RedirectResponse|StreamedResponse
+    {
+        $v = $request->filled('v')
+            ? $document->versions()->whereKey((int) $request->query('v'))->firstOrFail()
+            : ($document->current ?? $document->working() ?? null);
+
+        if ($document->type === 'jd') {
+            return redirect()->route('jobs.print', $document->code);
+        }
+        if ($v && ! $v->isLibrary()) {
+            return $this->download($document, $v);
+        }
+        abort_unless(DocLibrary::has($document), 404, 'لا يوجد نص لهذه الوثيقة في مكتبة إتقان.');
+
+        $tenant = $request->user()->tenant;
+        $prev = $v ? $document->versions()->where('id', '<', $v->id)->whereIn('stage', ['effective', 'superseded'])->orderByDesc('id')->value('version') : null;
+        $base = [
+            'doc' => $document, 'v' => $v, 'tenant' => $tenant, 'prev' => $prev,
+            'sig' => DocLibrary::signatures($v), 'draft' => ! $v || $v->stage !== 'effective',
+            'printedBy' => $request->user()->displayName(), 'printedAt' => now('Africa/Cairo')->format('Y-m-d H:i'),
+        ];
+
+        if ($document->type === 'kpi') {
+            return view('documents.print-kpi', $base + ['set' => DocLibrary::kpi($document->code), 'approvers' => DocLibrary::KPI_APPROVERS,
+                'bands' => \App\Support\KpiSets::BANDS, 'gateCap' => \App\Support\KpiSets::GATE_CAP]);
+        }
+
+        $sop = SopLibrary::fill(SopLibrary::get($document->code), $v?->fills ?? [], $tenant);
+        $form = $request->query('form');
+
+        return view('documents.print', $base + [
+            'sop'   => $sop,
+            'forms' => $form ? array_values(array_filter($sop['forms'], fn ($f) => $f['code'] === $form)) : $sop['forms'],
+            'only'  => (bool) $form,
+        ]);
     }
 
     /* ======================================================= */

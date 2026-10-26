@@ -73,7 +73,8 @@
   <div class="jd">
     <div class="hd">
       <div class="tn">{{ $tenant->name_ar }}<div style="font-size:11px;color:#5f6f6c;font-weight:400">إتقان · نظام إدارة الجودة</div></div>
-      <div class="tt"><b>الوصف الوظيفي</b><span>{{ $job['code'] }} · {{ $job['title'] }}</span></div>
+      <div class="tt"><b>الوصف الوظيفي</b><span>{{ $job['code'] }} · {{ $job['title'] }}</span>
+        <span style="display:block;font-size:11.5px">@if ($docv)الإصدار {{ $docv->version }} · ساري من {{ $docv->effective_date?->format('Y-m-d') }}@else<b style="display:inline;font-size:11.5px;color:#b3261e">غير معتمد بعد في التحكم في الوثائق{{ $docWip ? ' (' . $docWip . ')' : '' }}</b>@endif</span></div>
       @if ($tenant->logoUrl())<img src="{{ $tenant->logoUrl() }}" alt="">@else<span></span>@endif
     </div>
 
@@ -105,7 +106,15 @@
         @elseif ($b['type'] === 'kv')
           <table>@foreach ($b['rows'] as $r)<tr><td class="k">{{ $r[0] }}</td><td>{{ $r[1] ?? '' }}</td></tr>@endforeach</table>
         @elseif ($b['type'] === 'table')
-          @if ($isAck)
+          @if (str_starts_with($s['title'], 'الاعتماد') && $docv)
+            <table>
+              <tr>@foreach ($b['head'] as $h)<th>{{ $h }}</th>@endforeach</tr>
+              <tr>@foreach ($b['rows'][0] ?? [] as $c)<td>{{ $c }}</td>@endforeach</tr>
+              <tr><td class="k">الاسم</td>@foreach (['prep', 'review', 'approve'] as $k)<td>{{ $docSig[$k][0] ?? '' }}</td>@endforeach</tr>
+              <tr><td class="k">التوقيع</td>@foreach (['prep', 'review', 'approve'] as $k)<td>@if (! empty($docSig[$k][2]))<span style="color:#1e7a46;font-weight:700">✓ معتمد إلكترونياً في إتقان</span>@endif</td>@endforeach</tr>
+              <tr><td class="k">التاريخ</td>@foreach (['prep', 'review', 'approve'] as $k)<td class="ltr">{{ $docSig[$k][2] ?? '' }}</td>@endforeach</tr>
+            </table>
+          @elseif ($isAck)
             <table><tr>@foreach ($b['head'] as $h)<th>{{ $h }}</th>@endforeach</tr>
               <tr><td style="height:34px">{{ $user?->displayName() }}</td><td></td><td class="ltr">{{ $user?->jd_ack_at?->format('Y-m-d') }}</td></tr></table>
           @else

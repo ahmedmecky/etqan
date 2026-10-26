@@ -22,12 +22,19 @@
   .err{color:var(--bad);font-size:13px;margin-top:6px}
   tr.off td{opacity:.55}
   .hint{font-size:12.5px;color:var(--muted);line-height:1.8}
+  .libbox{border:1.5px solid #cfe3df;background:#f6fbfa;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+  .libbox h2{font-size:16px;margin:0 0 6px;color:var(--brand)}
+  .steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+  .steps3 form{margin:0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+  .steps3 b{font-size:13.5px} .steps3 span{font-size:12.5px;color:var(--muted);flex:1}
+  .steps3 .done{color:var(--ok);font-weight:700;font-size:12.5px}
+  @media (max-width:800px){.steps3{grid-template-columns:1fr}}
 </style>
 @endpush
 
 @section('content')
   @php
-    $stLabel = ['effective' => 'ساري', 'pending' => 'قيد المراجعة', 'none' => 'لم يُرفع ملف', 'review' => 'تجاوز موعد المراجعة', 'obsolete' => 'ملغاة'];
+    $stLabel = ['effective' => 'ساري', 'pending' => 'قيد الإعداد أو المراجعة', 'none' => 'بدون إصدار', 'review' => 'تجاوز موعد المراجعة', 'obsolete' => 'ملغاة'];
   @endphp
   <div class="head-actions">
     <div>
@@ -43,11 +50,37 @@
     <a class="stat" href="{{ route('documents.index') }}"><b>{{ $stats['total'] }}</b><span>وثيقة في السجل</span></a>
     <a class="stat ok" href="{{ route('documents.index', ['status' => 'effective']) }}"><b>{{ $stats['effective'] }}</b><span>سارية</span></a>
     <a class="stat {{ $stats['pending'] ? 'warn' : '' }}" href="{{ route('documents.index', ['status' => 'pending']) }}"><b>{{ $stats['pending'] }}</b><span>قيد الإعداد أو المراجعة</span></a>
-    <a class="stat" href="{{ route('documents.index', ['status' => 'none']) }}"><b>{{ $stats['none'] }}</b><span>لم يُرفع لها ملف</span></a>
+    <a class="stat" href="{{ route('documents.index', ['status' => 'none']) }}"><b>{{ $stats['none'] }}</b><span>بدون إصدار بعد</span></a>
     <a class="stat {{ $stats['review'] ? 'bad' : '' }}" href="{{ route('documents.index', ['status' => 'review']) }}"><b>{{ $stats['review'] }}</b><span>تجاوزت موعد المراجعة (سنتان)</span></a>
   </div>
 
   @if ($canManage)
+    <div class="libbox">
+      <h2>📘 مكتبة إتقان: الوثائق جاهزة في النظام بدون رفع ملفات</h2>
+      <div class="hint">٣٤ إجراء تشغيل قياسي بنماذجها · {{ \App\Support\JobLibrary::all()->count() }} وصفاً وظيفياً · {{ count(\App\Support\KpiSets::SETS) }} مجموعات مؤشرات أداء.
+        تملأ فراغات كل إجراء (مدد الحفظ · الحدود · الأوقات)، وتُعتمد في النظام (الجودة ← الرئيس التنفيذي)، وتُطبع بشعار المخزن وأسماء المعتمدين.</div>
+      <div class="steps3">
+        <form method="POST" action="{{ route('documents.seed') }}">
+          @csrf
+          <b>١. إضافة وثائق المكتبة للسجل</b>
+          <span>{{ $lib['missing'] ? $lib['missing'] . ' وثيقة من المكتبة غير موجودة في السجل.' : 'كل وثائق المكتبة في السجل.' }}</span>
+          @if ($lib['missing'])<button type="submit" class="btn small">إضافة {{ $lib['missing'] }} وثيقة</button>@else<span class="done">✓ تم</span>@endif
+        </form>
+        <form method="POST" action="{{ route('documents.library.all') }}">
+          @csrf
+          <b>٢. إنشاء المسودات من نص المكتبة</b>
+          <span>{{ $lib['empty'] ? $lib['empty'] . ' وثيقة ليس لها إصدار بعد.' : 'لا توجد وثائق بدون إصدار.' }} بعدها املأ فراغات كل إجراء من صفحته.</span>
+          @if ($lib['empty'])<button type="submit" class="btn small">إنشاء {{ $lib['empty'] }} مسودة</button>@else<span class="done">✓ تم</span>@endif
+        </form>
+        <form method="POST" action="{{ route('documents.submit.all') }}" onsubmit="return confirm('إرسال كل مسوداتك من المكتبة لمدير إدارة الجودة؟')">
+          @csrf
+          <b>٣. الإرسال للمراجعة دفعة واحدة</b>
+          <span>{{ $lib['drafts'] ? $lib['drafts'] . ' مسودة من المكتبة باسمك لم تُرسل.' : 'لا توجد مسودات باسمك.' }} يعتمدها مدير الجودة ثم الرئيس التنفيذي من قائمة الانتظار (اعتماد جماعي).</span>
+          @if ($lib['drafts'])<button type="submit" class="btn small">إرسال {{ $lib['drafts'] }} مسودة</button>@else<span class="done">—</span>@endif
+        </form>
+      </div>
+    </div>
+
     <div class="card">
       <h2 style="font-size:16px;margin:0 0 10px">إضافة وثيقة للسجل</h2>
       <form method="POST" action="{{ route('documents.store') }}" class="add">
@@ -60,11 +93,7 @@
         <button type="submit" class="btn">إضافة</button>
       </form>
       @foreach (['code', 'type', 'title', 'dept'] as $k)@error($k)<div class="err">{{ $message }}</div>@enderror @endforeach
-      <form method="POST" action="{{ route('documents.seed') }}" style="margin-top:12px">
-        @csrf
-        <span class="hint">أول مرة؟ حمّل قائمة إجراءات التشغيل القياسية الـ ٣٤ ومجموعات مؤشرات الأداء الـ ٩ في السجل دفعة واحدة، ثم ارفع ملف كل منها.</span>
-        <button type="submit" class="btn ghost small">تحميل قائمة الإجراءات والمؤشرات</button>
-      </form>
+      <div class="hint" style="margin-top:8px">لوثيقة خاصة بالمخزن غير موجودة في المكتبة (سياسة · نموذج إضافي): أضفها هنا ثم ارفع ملفها من صفحتها.</div>
     </div>
   @endif
 
@@ -90,7 +119,9 @@
         </tr></thead>
         <tbody>
           @forelse ($rows as $r)
-            @php($d = $r['doc'])
+            @php
+              $d = $r['doc'];
+            @endphp
             <tr class="{{ $d->is_active ? '' : 'off' }}">
               <td><a href="{{ route('documents.show', $d) }}" class="code">{{ $d->code }}</a></td>
               <td><a href="{{ route('documents.show', $d) }}" style="color:inherit">{{ $d->title }}</a>@if ($d->dept)<div class="by">{{ $d->dept }}</div>@endif</td>
@@ -103,11 +134,12 @@
                   <span class="ltr">{{ $r['working']->version }}</span> <span class="by">· {{ $r['working']->stageLabel() }}</span>
                 @else — @endif
               </td>
-              <td><span class="pill p-{{ $r['state'] }}">{{ $stLabel[$r['state']] }}</span></td>
+              <td><span class="pill p-{{ $r['state'] }}">{{ $stLabel[$r['state']] }}</span>
+                @if ($r['current'] && $r['current']->isLibrary())<a href="{{ route('documents.print', $d) }}" target="_blank" class="by" style="margin-inline-start:6px">طباعة</a>@endif</td>
             </tr>
           @empty
             <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">
-              {{ ($f['type'] !== '' || $f['status'] !== '' || $f['q'] !== '') ? 'لا توجد نتائج.' : 'السجل فارغ. أضف وثيقة أو حمّل قائمة الإجراءات.' }}
+              {{ ($f['type'] !== '' || $f['status'] !== '' || $f['q'] !== '') ? 'لا توجد نتائج.' : 'السجل فارغ. ابدأ بإضافة وثائق مكتبة إتقان (الخطوة ١ أعلاه).' }}
             </td></tr>
           @endforelse
         </tbody>

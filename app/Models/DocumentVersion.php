@@ -22,7 +22,7 @@ class DocumentVersion extends Model
     ];
 
     protected $fillable = [
-        'tenant_id', 'document_id', 'version', 'stage', 'file_path', 'file_name', 'file_size',
+        'tenant_id', 'document_id', 'version', 'stage', 'source', 'lib_version', 'fills', 'file_path', 'file_name', 'file_size',
         'change_summary', 'return_note', 'prepared_by', 'submitted_at', 'effective_date', 'review_due', 'approvals',
     ];
 
@@ -33,6 +33,7 @@ class DocumentVersion extends Model
             'effective_date' => 'date',
             'review_due'     => 'date',
             'approvals'      => 'array',
+            'fills'          => 'array',
         ];
     }
 
@@ -44,6 +45,12 @@ class DocumentVersion extends Model
     public function preparer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'prepared_by');
+    }
+
+    /** نص مدمج من مكتبة إتقان (بدون ملف) */
+    public function isLibrary(): bool
+    {
+        return $this->source === 'library';
     }
 
     public function stageLabel(): string

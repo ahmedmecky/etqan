@@ -181,21 +181,28 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/kpi', [KpiController::class, 'index'])->name('kpi.index');
         Route::get('/kpi/sets', [KpiController::class, 'sets'])->name('kpi.sets');
 
-        // التحكم في الوثائق: السجل · قائمة الانتظار · الإصدارات والاعتماد (SH-014)
+        // التحكم في الوثائق: السجل · قائمة الانتظار · الإصدارات والاعتماد · مكتبة إتقان والطباعة (SH-014)
         Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
         Route::get('/documents/queue', [DocumentController::class, 'queue'])->name('documents.queue');
         Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
         Route::post('/documents/seed', [DocumentController::class, 'seed'])->name('documents.seed');
+        Route::post('/documents/library-all', [DocumentController::class, 'libraryAll'])->name('documents.library.all');
+        Route::post('/documents/submit-all', [DocumentController::class, 'submitAll'])->name('documents.submit.all');
+        Route::post('/documents/approve-bulk', [DocumentController::class, 'approveBulk'])->name('documents.approve.bulk');
         Route::get('/documents/{document}', [DocumentController::class, 'show'])->whereNumber('document')->name('documents.show');
         Route::put('/documents/{document}', [DocumentController::class, 'update'])->whereNumber('document')->name('documents.update');
         Route::post('/documents/{document}/toggle', [DocumentController::class, 'toggle'])->whereNumber('document')->name('documents.toggle');
         Route::post('/documents/{document}/versions', [DocumentController::class, 'startVersion'])->whereNumber('document')->name('documents.version.start');
+        Route::post('/documents/{document}/library', [DocumentController::class, 'startLibrary'])->whereNumber('document')->name('documents.library');
+        Route::get('/documents/{document}/print', [DocumentController::class, 'print'])->whereNumber('document')->name('documents.print');
         Route::prefix('/documents/{document}/versions/{version}')->whereNumber(['document', 'version'])->group(function () {
             Route::post('/upload', [DocumentController::class, 'upload'])->name('documents.upload');
             Route::post('/submit', [DocumentController::class, 'submit'])->name('documents.submit');
             Route::post('/approve', [DocumentController::class, 'approve'])->name('documents.approve');
             Route::post('/return', [DocumentController::class, 'returnBack'])->name('documents.return');
             Route::get('/download', [DocumentController::class, 'download'])->name('documents.download');
+            Route::get('/fills', [DocumentController::class, 'fills'])->name('documents.fills');
+            Route::put('/fills', [DocumentController::class, 'saveFills'])->name('documents.fills.save');
             Route::delete('/', [DocumentController::class, 'destroyVersion'])->name('documents.version.destroy');
         });
 

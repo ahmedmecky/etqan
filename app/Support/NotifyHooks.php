@@ -165,8 +165,9 @@ class NotifyHooks
             $users = Notifier::users($tenant)
                 ->filter(fn ($u) => DocFlow::canAct($u, $v->stage))
                 ->reject(fn ($u) => $u->id === auth()->id());
-            Notifier::toUsers($users, $tenant, 'approval', 'documents', 'وثيقة تنتظر ' . (DocFlow::STEP_LABEL[$v->stage] === 'مدير إدارة الجودة' ? 'مراجعتك' : 'اعتمادك'),
-                $what, $url, 'doc-' . $v->id);
+            // الإرسال أو الاعتماد الجماعي: إشعار واحد مجمع لكل مرحلة في اليوم، والرابط لقائمة الانتظار
+            Notifier::toUsers($users, $tenant, 'approval', 'documents', 'وثيقة تنتظر ' . ($v->stage === 'qa' ? 'مراجعتك' : 'اعتمادك'),
+                $what, route('documents.queue'), 'doc-' . $v->stage . '-' . now('Africa/Cairo')->format('Ymd'));
 
             return;
         }

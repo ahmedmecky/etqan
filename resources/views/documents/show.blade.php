@@ -37,6 +37,12 @@
   .meta span{color:var(--muted)}
   textarea{min-height:70px}
   details summary{cursor:pointer;font-weight:700;font-size:14px}
+  .lib{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid #cfe3df;border-radius:10px;padding:10px 12px;background:#f3f9f8;margin:8px 0}
+  .lib b{color:var(--brand)}
+  .lib .bl{font-size:12.5px;border-radius:99px;padding:2px 10px;font-weight:700;background:#e3f4ea;color:var(--ok)}
+  .lib .bl.e{background:#fdf1dc;color:#9a6300}
+  .start{border:1.5px solid #cfe3df;border-radius:12px;padding:14px;background:#f8fcfb;margin-bottom:12px}
+  .start h3{margin:0 0 4px;font-size:15px;color:var(--brand)}
 </style>
 @endpush
 
@@ -44,6 +50,7 @@
   @php
     $w = $working;
     $cur = $doc->current;
+    $nxt = $w && $canAct ? \App\Support\DocFlow::next($w->stage, $doc->type, auth()->user()->tenant_id) : null;
     // مراحل المسار للعرض
     $flow = array_merge(['prep' => 'المُعد'], array_intersect_key($labels, array_flip($steps)), ['eff' => 'ساري']);
     $passed = collect($w?->approvals ?? [])->pluck('step')->all();
@@ -56,6 +63,7 @@
         @unless ($doc->is_active) · <b style="color:var(--bad)">ملغاة</b>@endunless</p>
     </div>
     <div class="actions">
+      @if ($hasLib)<a href="{{ route('documents.print', $doc) }}" class="btn gold" target="_blank">طباعة{{ $cur ? ' الساري' : '' }}</a>@endif
       <a href="{{ route('documents.queue') }}" class="btn ghost">قائمة الانتظار</a>
       <a href="{{ route('documents.index') }}" class="btn ghost">سجل الوثائق</a>
     </div>
@@ -92,7 +100,17 @@
         @if ($w->submitted_at)<span>أُرسل للمراجعة</span><div class="ltr" style="text-align:right">{{ $w->submitted_at->timezone('Africa/Cairo')->format('Y-m-d H:i') }}</div>@endif
       </div>
 
-      @if ($w->file_path)
+      @if ($w->isLibrary())
+        <div class="lib">📘 <b>نص مكتبة إتقان</b> <span class="by">إصدار المكتبة {{ $w->lib_version }}</span>
+          @if ($blanks)
+            <span class="bl {{ $blanks['empty'] ? 'e' : '' }}">{{ $blanks['empty'] ? $blanks['empty'] . ' فراغ لم يُملأ من ' . $blanks['total'] : 'كل الفراغات مملوءة (' . $blanks['total'] . ')' }}</span>
+          @endif
+          <span style="flex:1"></span>
+          @if ($doc->type === 'sop' && $hasBlanks)<a href="{{ route('documents.fills', [$doc, $w]) }}" class="btn small {{ ($canPrepare || $canAct) ? '' : 'ghost' }}">{{ ($canPrepare || $canAct) ? 'ملء الفراغات' : 'عرض الفراغات' }}</a>@endif
+          @if ($doc->type === 'jd' && \App\Http\Controllers\JobController::canManage(auth()->user()))<a href="{{ route('jobs.edit', $doc->code) }}" class="btn small ghost">فراغات الوصف (الهيكل الوظيفي)</a>@endif
+          <a href="{{ route('documents.print', [$doc, 'v' => $w->id]) }}" class="btn small ghost" target="_blank">معاينة الطباعة</a>
+        </div>
+      @elseif ($w->file_path)
         <div class="file">📄 <b>{{ $w->file_name }}</b> <span class="by">{{ number_format(($w->file_size ?? 0) / 1024, 0) }} KB</span>
           <span style="flex:1"></span><a href="{{ route('documents.download', [$doc, $w]) }}" class="btn small">تنزيل</a></div>
       @else
@@ -112,7 +130,12 @@
       {{-- المُعد: مسودة أو معادة --}}
       @if ($canPrepare)
         <div class="box edit">
-          <h3>{{ $w->stage === 'returned' ? 'عدّل الملف حسب الملاحظات ثم أعد الإرسال' : 'المسودة' }}</h3>
+          <h3>{{ $w->stage === 'returned' ? ($w->isLibrary() ? 'عدّل حسب الملاحظات ثم أعد الإرسال' : 'عدّل الملف حسب الملاحظات ثم أعد الإرسال') : 'المسودة' }}</h3>
+          @if ($w->isLibrary())
+            <div class="by">النص من مكتبة إتقان ولا يحتاج ملفاً.{{ $doc->type === 'sop' ? ' املأ الفراغات وراجع المعاينة ثم أرسل.' : ' راجع المعاينة ثم أرسل.' }}</div>
+            <details style="margin-top:8px">
+              <summary>تعديل أكبر من الفراغات؟ ارفع ملفاً معدلاً بدلاً من نص المكتبة</summary>
+          @endif
           <form method="POST" action="{{ route('documents.upload', [$doc, $w]) }}" enctype="multipart/form-data">
             @csrf
             <label class="f" for="up_file">{{ $w->file_path ? 'رفع ملف معدل (يحل محل الملف الحالي)' : 'ملف الوثيقة' }}</label>
@@ -121,10 +144,13 @@
             <textarea id="up_sum" name="change_summary">{{ old('change_summary', $w->change_summary) }}</textarea>
             <div class="row"><button type="submit" class="btn ghost">رفع الملف</button></div>
           </form>
+          @if ($w->isLibrary())
+            </details>
+          @endif
           <div class="row">
             <form method="POST" action="{{ route('documents.submit', [$doc, $w]) }}" style="margin:0">
               @csrf
-              <button type="submit" class="btn" {{ $w->file_path ? '' : 'disabled' }}>إرسال لمدير إدارة الجودة</button>
+              <button type="submit" class="btn" {{ $w->file_path || $w->isLibrary() ? '' : 'disabled' }}>إرسال لمدير إدارة الجودة</button>
             </form>
             @if ($w->stage === 'draft')
               <form method="POST" action="{{ route('documents.version.destroy', [$doc, $w]) }}" onsubmit="return confirm('حذف هذه المسودة وملفها؟')" style="margin:0">
@@ -144,7 +170,6 @@
         <div class="grid2" style="margin-top:12px">
           <div class="box approve" style="margin:0">
             <h3>✓ اعتماد</h3>
-            @php($nxt = \App\Support\DocFlow::next($w->stage, $doc->type, auth()->user()->tenant_id))
             <div class="by">{{ $nxt ? 'تنتقل الوثيقة بعد اعتمادك إلى: ' . $labels[$nxt] : 'اعتمادك نهائي: يصبح الإصدار سارياً من اليوم، ويُلغى الإصدار السابق، وموعد المراجعة بعد سنتين.' }}</div>
             <form method="POST" action="{{ route('documents.approve', [$doc, $w]) }}" onsubmit="return confirm('{{ $nxt ? 'اعتماد وإرسال؟' : 'اعتماد نهائي وسريان الإصدار؟' }}')">
               @csrf
@@ -162,6 +187,9 @@
             </form>
           </div>
         </div>
+        @if ($w->isLibrary() && $doc->type === 'sop' && $hasBlanks)
+          <div class="by" style="margin-top:8px">✎ لتعديل قيمة فراغ بنفسك دون إعادة: <a href="{{ route('documents.fills', [$doc, $w]) }}">ملء الفراغات</a> (يُسجل التعديل باسمك).</div>
+        @endif
         <div class="box edit">
           <details>
             <summary>✎ تعديل بنفسي (رفع ملف معدل دون إعادة)</summary>
@@ -179,9 +207,27 @@
       @endif
 
     @elseif ($doc->is_active)
-      <h2 style="font-size:16px;margin:0 0 8px">{{ $cur ? 'إصدار جديد (مراجعة / تعديل)' : 'رفع الإصدار الأول' }}</h2>
+      <h2 style="font-size:16px;margin:0 0 8px">{{ $cur ? 'إصدار جديد (مراجعة / تعديل)' : 'الإصدار الأول' }}</h2>
       <div class="by" style="margin-bottom:8px">المسار: المُعد ← {{ collect($steps)->map(fn ($s) => $labels[$s])->implode(' ← ') }} ← ساري.
         @if ($cur) الإصدار الساري {{ $cur->version }} يبقى سارياً حتى يُعتمد الجديد.@endif</div>
+      @if ($hasLib)
+        <div class="start">
+          <h3>📘 من نص مكتبة إتقان (بدون رفع ملف)</h3>
+          <div class="by">النص الجاهز للإصدار {{ $libVer }}{{ $doc->type === 'sop' ? ' بنماذجه' : '' }}. {{ $doc->type === 'sop' ? 'تملأ الفراغات فقط (مدد · حدود · أوقات)، ويُطبع بشعار المخزن.' : 'يُطبع بشعار المخزن.' }}
+            @if ($cur && $cur->isLibrary()) تُنقل فراغات الإصدار السابق تلقائياً.@endif</div>
+          <form method="POST" action="{{ route('documents.library', $doc) }}" style="margin-top:8px">
+            @csrf
+            <div class="grid2" style="grid-template-columns:140px 1fr;gap:10px">
+              <div><label class="f req" for="lver">رقم الإصدار</label><input type="text" id="lver" name="version" value="{{ old('version', $cur ? $nextVer : $libVer) }}" class="ltr-in" required></div>
+              <div><label class="f req" for="lsum">ملخص التعديل</label><input type="text" id="lsum" name="change_summary" value="{{ old('change_summary', $cur ? 'مراجعة دورية: بدون تغيير في النص' : 'إصدار أول في المخزن من نص مكتبة إتقان') }}" required></div>
+            </div>
+            <div class="row"><button type="submit" class="btn">إنشاء الإصدار من المكتبة</button>
+              <a href="{{ route('documents.print', $doc) }}" target="_blank" class="btn ghost">معاينة النص</a></div>
+          </form>
+        </div>
+        <details>
+          <summary>أو ارفع ملفاً خاصاً بالمخزن</summary>
+      @endif
       <form method="POST" action="{{ route('documents.version.start', $doc) }}" enctype="multipart/form-data">
         @csrf
         <div class="grid2" style="grid-template-columns:140px 1fr">
@@ -192,6 +238,9 @@
         <textarea id="sum" name="change_summary" required placeholder="{{ $cur ? 'ما الذي تغير عن الإصدار ' . $cur->version . '؟' : 'إصدار أول' }}">{{ old('change_summary', $cur ? '' : 'إصدار أول') }}</textarea>
         <div class="row"><button type="submit" class="btn">إنشاء الإصدار</button></div>
       </form>
+      @if ($hasLib)
+        </details>
+      @endif
     @else
       <div class="by">الوثيقة ملغاة. أعد تفعيلها لإصدار جديد.</div>
     @endif
@@ -210,7 +259,8 @@
         @foreach ($cur->approvals ?? [] as $a)
           <div class="appr">✓ {{ $labels[$a['step']] ?? $a['step'] }} · {{ $a['name'] }} <span class="by ltr">{{ $a['at'] }}</span></div>
         @endforeach
-        @if ($cur->file_path)<div class="row"><a href="{{ route('documents.download', [$doc, $cur]) }}" class="btn small">تنزيل النسخة السارية</a></div>@endif
+        @if ($cur->isLibrary())<div class="row"><a href="{{ route('documents.print', $doc) }}" class="btn small gold" target="_blank">طباعة النسخة السارية</a></div>
+        @elseif ($cur->file_path)<div class="row"><a href="{{ route('documents.download', [$doc, $cur]) }}" class="btn small">تنزيل النسخة السارية</a></div>@endif
       @else
         <div class="by">لا يوجد إصدار ساري بعد.</div>
       @endif
@@ -262,7 +312,7 @@
               <td>{{ $v->preparer?->displayName() ?? '—' }}</td>
               <td class="ltr">{{ $v->effective_date?->format('Y-m-d') ?? '—' }}</td>
               <td class="by">{{ collect($v->approvals ?? [])->map(fn ($a) => ($labels[$a['step']] ?? $a['step']) . ': ' . $a['name'])->implode(' · ') ?: '—' }}</td>
-              <td>@if ($v->file_path)<a href="{{ route('documents.download', [$doc, $v]) }}" class="btn ghost small">تنزيل</a>@endif</td>
+              <td>@if ($v->isLibrary())<a href="{{ route('documents.print', [$doc, 'v' => $v->id]) }}" class="btn ghost small" target="_blank">طباعة</a>@elseif ($v->file_path)<a href="{{ route('documents.download', [$doc, $v]) }}" class="btn ghost small">تنزيل</a>@endif</td>
             </tr>
           @empty
             <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:18px">لا توجد إصدارات بعد.</td></tr>

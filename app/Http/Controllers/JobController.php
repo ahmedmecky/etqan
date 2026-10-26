@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Document;
 use App\Models\TenantJob;
 use App\Models\User;
+use App\Support\Access;
+use App\Support\DocFlow;
+use App\Support\DocLibrary;
 use App\Support\JobLibrary;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -115,7 +119,9 @@ class JobController extends Controller
     /** الوصف الوظيفي فارغاً (للتعيين أو الإعلان عن الوظيفة) */
     public function printJob(Request $request, string $code): View
     {
-        $this->guard($request);
+        // الموارد البشرية ومدير المخزن · ومراجعو الوثائق (الجودة · الرئيس التنفيذي) عند الاعتماد
+        $u = $request->user();
+        abort_unless(self::canManage($u) || DocFlow::myStages($u) !== [] || Access::can($u, 'documents', 'view'), 403, 'طباعة الأوصاف الوظيفية لمدير المخزن والموارد البشرية ومراجعي الوثائق.');
 
         return $this->render($request, JobLibrary::get($code) ?? abort(404), null);
     }
@@ -186,6 +192,19 @@ class JobController extends Controller
             'tenant' => $tenant, 'note' => $settings[$job['code']]->note ?? null,
             'canManage' => self::canManage($request->user()),
             'today' => Carbon::today('Africa/Cairo')->toDateString(),
-        ]);
+        ] + $this->docControl($job['code']));
+    }
+
+    /** بيانات التحكم في الوثائق للوصف: الإصدار الساري وتاريخه وتوقيعات الاعتماد (SH-014) */
+    private function docControl(string $code): array
+    {
+        $doc = Document::query()->with(['current.preparer.role', 'versions'])->where('code', $code)->where('is_active', true)->first();
+        $v = $doc?->current;
+
+        return [
+            'docv'   => $v,
+            'docSig' => DocLibrary::signatures($v),
+            'docWip' => $doc?->working()?->stageLabel(),
+        ];
     }
 }

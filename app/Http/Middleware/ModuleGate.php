@@ -29,6 +29,7 @@ class ModuleGate
         'documents.store' => ['documents', 'use'], 'documents.seed' => ['documents', 'use'], 'documents.update' => ['documents', 'use'],
         'documents.toggle' => ['documents', 'use'], 'documents.version.start' => ['documents', 'use'], 'documents.upload' => ['documents', 'use'],
         'documents.submit' => ['documents', 'use'], 'documents.version.destroy' => ['documents', 'use'],
+        'documents.library' => ['documents', 'use'], 'documents.library.all' => ['documents', 'use'], 'documents.submit.all' => ['documents', 'use'],
         'temperature.round' => ['temperature', 'view'], 'temperature.save' => ['temperature', 'use'],
         'temperature.points' => ['temperature', 'view'], 'temperature.points.store' => ['temperature', 'use'], 'temperature.points.seed' => ['temperature', 'use'],
         'temperature.points.json' => ['temperature', 'view'], 'temperature.points.update' => ['temperature', 'use'], 'temperature.points.toggle' => ['temperature', 'use'],
@@ -78,12 +79,18 @@ class ModuleGate
             return $this->deny($request, 'training', 'view');
         }
 
-        // تنزيل ملف وثيقة: الساري متاح للجميع · غير الساري لمن يعمل على الوثائق أو يراجعها
-        if ($name === 'documents.download') {
+        // تنزيل أو طباعة وثيقة أو عرض فراغاتها: الساري متاح للجميع · غير الساري لمن يعمل على الوثائق أو يراجعها
+        if (in_array($name, ['documents.download', 'documents.print', 'documents.fills'], true)) {
             $v = $route->parameter('version');
-            $v = $v instanceof DocumentVersion ? $v : DocumentVersion::find($v);
+            if ($name === 'documents.print') {
+                $doc = $route->parameter('document');
+                $doc = $doc instanceof \App\Models\Document ? $doc : \App\Models\Document::find($doc);
+                $v = $request->filled('v') ? (int) $request->query('v') : ($doc?->current ?? $doc?->working());
+            }
+            $v = $v instanceof DocumentVersion ? $v : ($v ? DocumentVersion::find($v) : null);
             $reviewer = \App\Support\DocFlow::myStages($user) !== [];
-            if ($v && $v->stage !== 'effective' && (int) $v->prepared_by !== $user->id && ! $reviewer && ! Access::can($user, 'documents', 'view')) {
+            $open = $v ? $v->stage === 'effective' : $name === 'documents.print';   // بدون إصدار: نص المكتبة العام
+            if (! $open && (! $v || (int) $v->prepared_by !== $user->id) && ! $reviewer && ! Access::can($user, 'documents', 'view')) {
                 return $this->deny($request, 'documents', 'view');
             }
 
