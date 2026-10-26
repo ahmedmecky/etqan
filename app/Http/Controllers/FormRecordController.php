@@ -139,7 +139,7 @@ class FormRecordController extends Controller
             'title'        => $data['title'] ?? null,
             'record_date'  => $data['record_date'] ?? null,
             'status'       => $data['status'],
-            'data'         => $data['data'],
+            'data'         => $this->rawData($request),
             'created_by'   => $user->id,
             'updated_by'   => $user->id,
             'finalized_by' => $final ? $user->id : null,
@@ -177,7 +177,7 @@ class FormRecordController extends Controller
             'title'        => $data['title'] ?? null,
             'record_date'  => $data['record_date'] ?? null,
             'status'       => $data['status'],
-            'data'         => $data['data'],
+            'data'         => $this->rawData($request),
             'updated_by'   => $user->id,
             'finalized_by' => $final ? $user->id : null,
             'finalized_at' => $final ? now() : null,
@@ -242,6 +242,20 @@ class FormRecordController extends Controller
         return $this->visible(FormRecord::query()->form($f['code']), $f, request()->user())->findOrFail($id);
     }
 
+    /**
+     * بيانات الشاشة كما أرسلها المتصفح بالضبط:
+     * Laravel يحول النص الفارغ إلى null ويقص المسافات، و PHP يحول الكائن الفارغ {} إلى [] —
+     * فتتعطل الشاشة عند فتح السجل (مثل نتائج فحص الاستلام والطباعة). نقرأ الطلب الأصلي ونحفظه كما هو.
+     */
+    private function rawData(Request $request): mixed
+    {
+        $raw = json_decode((string) $request->getContent(), false);
+
+        return is_object($raw) && isset($raw->data) && (is_object($raw->data) || is_array($raw->data))
+            ? $raw->data
+            : $request->input('data');
+    }
+
     private function validated(Request $request, string $code, ?int $ignoreId): array
     {
         $tenantId = $request->user()->tenant_id;
@@ -290,7 +304,8 @@ class FormRecordController extends Controller
             'title'        => $r->title,
             'record_date'  => $r->record_date?->format('Y-m-d'),
             'status'       => $r->status,
-            'data'         => $r->data,
+            // كما حُفظت (الكائن الفارغ يبقى {})
+            'data'         => json_decode((string) $r->getRawOriginal('data')) ?? $r->data,
             'created_by'   => $r->creator?->displayName(),
             'finalized_by' => $r->finalizer?->displayName(),
             'finalized_at' => $r->finalized_at?->timezone('Africa/Cairo')->format('Y-m-d H:i'),

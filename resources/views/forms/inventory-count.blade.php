@@ -736,7 +736,7 @@ async function persist(status) {
 
 /* تحميل سجل من الخادم إلى الشاشة */
 function loadRecord(rec) {
-  C = Object.assign(blankCount(), rec.data || {});
+  C = fitData(blankCount(), rec.data || {});
   if (!rec.data || rec.data.erp === undefined) C.erp = false;   // محاضر قبل إعداد ERP كانت بالأصناف
   C.id = rec.id;
   C.no = rec.number;

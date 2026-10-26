@@ -690,7 +690,7 @@ async function persist(status) {
   await refreshList();
 }
 function loadRecord(rec) {
-  C = Object.assign(blankCheck(), rec.data || {});
+  C = fitData(blankCheck(), rec.data || {});
   C.pickers = Object.assign({}, LAST_PICKERS, C.pickers || {});
   C.id = rec.id; C.no = rec.number; C.status = rec.status; C.autoNo = false;
   LOGS = rec.logs || [];

@@ -557,7 +557,7 @@ async function persist(status) {
 
 /* تحميل سجل من الخادم إلى الشاشة */
 function loadRecord(rec) {
-  M = Object.assign(blankMinutes(), rec.data || {});
+  M = fitData(blankMinutes(), rec.data || {});
   M.id = rec.id;
   M.no = rec.number;
   M.status = rec.status;

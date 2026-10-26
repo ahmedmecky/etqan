@@ -516,7 +516,7 @@ async function persist(status) {
   loadRecord(res.record); await refreshList();
 }
 function loadRecord(rec) {
-  C = Object.assign(blankRec(), rec.data || {});
+  C = fitData(blankRec(), rec.data || {});
   C.id = rec.id; C.no = rec.number; C.status = rec.status; C.autoNo = false;
   if (!C.sign) C.sign = {};
   if (C.status !== 'final' && C.stage === 'final') C.stage = 'approved';

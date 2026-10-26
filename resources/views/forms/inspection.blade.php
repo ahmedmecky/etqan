@@ -750,7 +750,7 @@ async function persist(status) {
 }
 
 function loadRecord(rec) {
-  C = Object.assign(blankInsp(), rec.data || {});
+  C = fitData(blankInsp(), rec.data || {});
   C.id = rec.id; C.no = rec.number; C.status = rec.status; C.autoNo = false;
   LOGS = rec.logs || [];
   render();

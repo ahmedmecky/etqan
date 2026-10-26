@@ -716,7 +716,7 @@ async function persist(status) {
 }
 
 function loadRecord(rec) {
-  C = Object.assign(blankCmp(), rec.data || {});
+  C = fitData(blankCmp(), rec.data || {});
   C.id = rec.id; C.no = rec.number; C.status = rec.status; C.autoNo = false;
   if (C.status !== 'final' && C.stage === 'closed') { C.stage = 'investigating'; C.sign = Object.assign({}, C.sign); delete C.sign.close; }
   LOGS = rec.logs || [];

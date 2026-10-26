@@ -608,7 +608,7 @@ async function persist(status) {
   await refreshList();
 }
 function loadRecord(rec) {
-  C = Object.assign(blankEval(), rec.data || {});
+  C = fitData(blankEval(), rec.data || {});
   C.id = rec.id; C.no = rec.number; C.status = rec.status; C.autoNo = false;
   if (C.status !== 'final' && C.stage === 'final') { C.stage = 'emp'; C.sign = Object.assign({}, C.sign); delete C.sign.hr; }
   LOGS = rec.logs || [];

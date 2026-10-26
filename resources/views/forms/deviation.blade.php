@@ -701,7 +701,7 @@ async function persist(status) {
 }
 
 function loadRecord(rec) {
-  C = Object.assign(blankDev(), rec.data || {});
+  C = fitData(blankDev(), rec.data || {});
   C.id = rec.id; C.no = rec.number; C.status = rec.status; C.autoNo = false;
   if (C.status !== 'final' && C.stage === 'closed') {                          // بعد إعادة الفتح
     C.stage = 'implementing';

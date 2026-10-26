@@ -96,6 +96,35 @@
   @media (max-width:560px){ header.top{gap:10px;padding:0 12px !important} .tb-div,header.top .brand{display:none !important} .tb-user .menu{position:fixed;left:8px;top:60px} .nb-panel{position:fixed;left:8px;right:8px;top:60px;width:auto} .tb-bell summary{width:38px;height:38px} .tb-org .lg{width:38px;height:38px} .tb-org b{font-size:14px;max-width:120px} }
   @media print{ header.top{display:none !important} }
 </style>
+<script>
+  /*
+   * fitData(template, data): يعيد بيانات سجل محفوظ لنفس شكل النموذج الفارغ
+   * الخادم كان يحول النص الفارغ إلى null والكائن الفارغ {} إلى []، فتتعطل الشاشة بعد فتح السجل.
+   * النص null ← ''، والقائمة [] مكان كائن ← {}، وعناصر القوائم تأخذ شكل أول عنصر في النموذج.
+   */
+  window.fitData = function fit(tpl, data) {
+    if (data === undefined) return tpl;
+    if (tpl === null || tpl === undefined) return data;
+    if (typeof tpl === 'string') return data === null ? '' : data;
+    if (typeof tpl === 'number' || typeof tpl === 'boolean') return data === null ? tpl : data;
+    if (Array.isArray(tpl)) {
+      if (!Array.isArray(data)) return data && typeof data === 'object' ? Object.values(data) : tpl;
+      const el = tpl[0];
+      if (el && typeof el === 'object' && !Array.isArray(el)) return data.map(x => x && typeof x === 'object' && !Array.isArray(x) ? fit(Object.assign({}, el), x) : x);
+      if (typeof el === 'string') return data.map(x => x === null ? '' : x);
+      return data;
+    }
+    if (typeof tpl === 'object') {
+      const obj = Array.isArray(data) ? Object.assign({}, data) : data;
+      if (!obj || typeof obj !== 'object') return tpl;
+      const out = Object.assign({}, tpl);
+      const isMap = Object.keys(tpl).length === 0;           // مثل: نتائج الفحص {بند: نعم/لا}
+      Object.keys(obj).forEach(k => { out[k] = k in tpl ? fit(tpl[k], obj[k]) : (isMap && obj[k] === null ? '' : obj[k]); });
+      return out;
+    }
+    return data;
+  };
+</script>
 @stack('head')
 </head>
 <body>
