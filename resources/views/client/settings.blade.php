@@ -97,6 +97,8 @@
                 <input type="number" name="{{ $key }}" value="{{ old($key, $values[$key]) }}"
                        min="{{ $def['min'] }}" max="{{ $def['max'] }}" step="{{ $def['step'] ?? 'any' }}">
                 @isset($def['suffix'])<span>{{ $def['suffix'] }}</span>@endisset
+              @else
+                <input type="text" name="{{ $key }}" value="{{ old($key, $values[$key]) }}" maxlength="500" placeholder="{{ $def['placeholder'] ?? '' }}" class="ltr-in" style="min-width:220px">
               @endif
             </div>
           </div>

@@ -270,17 +270,14 @@ class HomeDashboard
         return [$open, $late];
     }
 
-    /** نسبة قراءات الحرارة المسجلة هذا الشهر (عدا الجمعة) */
+    /** نسبة قراءات الحرارة المسجلة هذا الشهر (عدا الجمعة) بعدد القراءات اليومية في الإعدادات */
     private function tempCompletion(): ?float
     {
         $points = TempPoint::query()->where('is_active', true)->pluck('id');
         if ($points->isEmpty()) return null;
-        $hour = Carbon::now(self::TZ)->hour;
         $slots = 0;
         for ($d = $this->today->copy()->startOfMonth(); $d->lte($this->today); $d->addDay()) {
-            if ($d->dayOfWeek === Carbon::FRIDAY) continue;
-            $isToday = $d->isSameDay($this->today);
-            $slots += (! $isToday || $hour >= 12 ? 1 : 0) + (! $isToday || $hour >= 20 ? 1 : 0);
+            $slots += count(TempRounds::dueOn($d->copy(), $this->u->tenant_id));
         }
         $expected = $slots * $points->count();
         if (! $expected) return null;

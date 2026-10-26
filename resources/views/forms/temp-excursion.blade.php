@@ -820,7 +820,7 @@ async function prefillFromReading(id) {
     C.action = r.note || '';
     C.actionTime = r.time || '';
     render();
-    showMsg(null, `بيانات القراءة (${r.date} ${r.shift === 'am' ? 'الصباح' : 'المساء'}) نُقلت للتقرير. أكمل باقي البيانات.`);
+    showMsg(null, `بيانات القراءة (${r.date} ${r.shiftLabel || ''}) نُقلت للتقرير. أكمل باقي البيانات.`);
   } catch (e) { showMsg(e); }
 }
 

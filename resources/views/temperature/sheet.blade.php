@@ -100,11 +100,13 @@
     <table class="s">
       <thead>
         <tr><th rowspan="2" style="width:84px">التاريخ</th>
-          <th colspan="{{ $hum ? 5 : 4 }}">الصباح</th><th colspan="{{ $hum ? 5 : 4 }}">المساء</th>
+          @foreach ($keys as $k)
+            <th colspan="{{ $hum ? 3 : 2 }}">{{ \App\Support\TempRounds::label($k, null, false) }}@isset($times[$k])<div style="font-weight:400;font-size:10.5px">{{ $times[$k] }}</div>@endisset</th>
+          @endforeach
           <th rowspan="2">ملاحظات / تقرير الانحراف</th><th rowspan="2" style="width:120px">المسجِّل</th></tr>
         <tr>
-          @foreach ([1, 2] as $_)
-            <th>الوقت</th><th>الحالية</th><th>الأعلى</th><th>الأدنى</th>@if ($hum)<th>الرطوبة</th>@endif
+          @foreach ($keys as $k)
+            <th>الوقت</th><th>°م</th>@if ($hum)<th>٪</th>@endif
           @endforeach
         </tr>
       </thead>
@@ -117,25 +119,25 @@
           @endphp
           <tr class="{{ $fri && $row->isEmpty() ? 'fri' : '' }}">
             <td class="d">{{ $d->format('d/m') }} <span style="font-weight:400;font-size:11px">{{ ['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'][$d->dayOfWeek] }}</span></td>
-            @foreach (['am', 'pm'] as $s)
-              @php($r = $row->get($s))
+            @foreach ($keys as $k)
+              @php
+                $r = $row->get($k);
+              @endphp
               @if ($r)
                 <td class="v">{{ substr((string) $r->time, 0, 5) }}</td>
                 <td class="v {{ $cls($r->cur) }}">{{ $n($r->cur) }}</td>
-                <td class="v {{ $cls($r->t_high) }}">{{ $n($r->t_high) }}</td>
-                <td class="v {{ $cls($r->t_low) }}">{{ $n($r->t_low) }}</td>
-                @if ($hum)<td class="v {{ $hcls($r->hum) }}">{{ $r->hum !== null ? $r->hum . '%' : '' }}</td>@endif
+                @if ($hum)<td class="v {{ $hcls($r->hum) }}">{{ $r->hum !== null ? $r->hum : '' }}</td>@endif
               @else
-                <td colspan="{{ $hum ? 5 : 4 }}" style="color:var(--muted);font-size:11px">{{ $fri ? 'جمعة · جهاز التسجيل' : ($d->isFuture() ? '' : '—') }}</td>
+                <td colspan="{{ $hum ? 3 : 2 }}" style="color:var(--muted);font-size:11px">{{ $fri ? 'جمعة' : ($d->isFuture() ? '' : '—') }}</td>
               @endif
             @endforeach
             <td style="text-align:start;font-size:11.5px">
               @foreach ($notes as $r)
-                <div>{{ $r->shift === 'am' ? 'ص' : 'م' }}: {{ $r->note }}
-                  @if ($r->status === 'out')
-                    @php($x = $exc->get($r->id))
-                    <b style="color:var(--bad)" class="ltr">{{ $x ? $x['no'] : 'بدون F03' }}</b>
-                  @endif
+                @php
+                  $x = $r->status === 'out' ? $exc->get($r->id) : null;
+                @endphp
+                <div>{{ \App\Support\TempRounds::short($r->shift) }}: {{ $r->note }}
+                  @if ($r->status === 'out')<b style="color:var(--bad)" class="ltr">{{ $x ? $x['no'] : 'خارج الحدود' }}</b>@endif
                 </div>
               @endforeach
             </td>
@@ -171,7 +173,7 @@
       <div>أمين المخزن<br>الاسم: ............ التوقيع: ............</div>
       <div>المدير الصيدلي<br>الاسم: ............ التوقيع: ............</div>
     </div>
-    <div class="sfoot">{{ $tenant->name_ar }} · إتقان · {{ $cold ? 'SH-030-F02' : 'SH-030-F01' }} · أي قراءة خارج الحدود: تقرير انحراف SH-030-F03 · طُبع {{ now('Africa/Cairo')->format('Y-m-d H:i') }}</div>
+    <div class="sfoot">{{ $tenant->name_ar }} · إتقان · {{ $cold ? 'SH-030-F02' : 'SH-030-F01' }} · القراءة خارج الحدود تُسجل ويُبلغ مدير الجودة والمدير الصيدلي · تقرير الانحراف SH-030-F03 · طُبع {{ now('Africa/Cairo')->format('Y-m-d H:i') }}</div>
   </div>
   @endif
 @endsection

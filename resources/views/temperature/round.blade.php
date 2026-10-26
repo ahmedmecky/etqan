@@ -21,9 +21,12 @@
   .pt-h b{font-size:15.5px}
   .pt-h .lim{font-size:12px;color:var(--muted)}
   .pt-h .ico{font-size:18px}
-  .vals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-  .vals.nohum{grid-template-columns:repeat(3,1fr)}
-  @media (max-width:520px){.vals{grid-template-columns:repeat(2,1fr)}.vals.nohum{grid-template-columns:repeat(3,1fr)}}
+  .vals{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .vals.nohum{grid-template-columns:1fr}
+  .seg{flex-wrap:wrap}
+  .others{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .others span{font-size:12px;background:#f3f6f5;border-radius:99px;padding:1px 9px;color:var(--muted);direction:ltr}
+  .others span.out{background:#fde8e6;color:var(--bad);font-weight:700}
   .vals label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px;font-weight:600}
   .vals input{font-size:19px;padding:10px 8px;text-align:center;direction:ltr;font-weight:700;width:100%}
   .msg{font-size:12.5px;margin-top:6px;font-weight:600}
@@ -57,8 +60,8 @@
     <input type="date" name="date" value="{{ $date->toDateString() }}" max="{{ now('Africa/Cairo')->toDateString() }}" onchange="this.form.submit()">
     <input type="hidden" name="shift" value="{{ $shift }}">
     <span class="seg">
-      @foreach (['am' => 'الصباح', 'pm' => 'المساء'] as $k => $l)
-        <a href="{{ route('temperature.round', ['date' => $date->toDateString(), 'shift' => $k]) }}" class="{{ $shift === $k ? 'on' : '' }}">{{ $l }}<small>{{ $done[$k] }} / {{ $points->count() }}</small></a>
+      @foreach ($rounds as $k => $tm)
+        <a href="{{ route('temperature.round', ['date' => $date->toDateString(), 'shift' => $k]) }}" class="{{ $shift === (string) $k ? 'on' : '' }}">{{ \App\Support\TempRounds::label((string) $k, null, false) }}<small>{{ $tm }} · {{ $done[$k] ?? 0 }}/{{ $points->count() }}</small></a>
       @endforeach
     </span>
     @unless ($isToday)<span class="code" style="direction:rtl">يوم سابق</span>@endunless
@@ -84,7 +87,7 @@
         @php
           if ($loop->first) { $lastType = null; }
           $r = $cur->get($p->id);
-          $o = $other->get($p->id);
+          $others = $all->except([$shift])->map(fn ($g) => $g->get($p->id))->filter()->sortKeys();
           $val = fn ($k, $col) => old("r.{$p->id}.{$k}", $r ? ($col === 'hum' ? $r->hum : \App\Models\TempPoint::n($r->$col)) : '');
           $x = $exc->get($r?->id);
           $grp = $p->isCold() ? 'cold' : 'room';
@@ -103,17 +106,15 @@
             <span class="ico" data-o="ico">{{ $r ? ($r->status === 'out' ? '⚠️' : ($r->status === 'warn' ? '⚡' : '✓')) : '' }}</span>
           </div>
           <div class="vals {{ $p->h_max ? '' : 'nohum' }}">
-            <div><label>الحالية °م</label><input type="number" step="0.1" inputmode="decimal" name="r[{{ $p->id }}][cur]" value="{{ $val('cur', 'cur') }}"></div>
-            <div><label>الأعلى</label><input type="number" step="0.1" inputmode="decimal" name="r[{{ $p->id }}][high]" value="{{ $val('high', 't_high') }}"></div>
-            <div><label>الأدنى</label><input type="number" step="0.1" inputmode="decimal" name="r[{{ $p->id }}][low]" value="{{ $val('low', 't_low') }}"></div>
+            <div><label>درجة الحرارة °م</label><input type="number" step="0.1" inputmode="decimal" name="r[{{ $p->id }}][cur]" value="{{ $val('cur', 'cur') }}"></div>
             @if ($p->h_max)
               <div><label>الرطوبة ٪</label><input type="number" step="1" inputmode="numeric" name="r[{{ $p->id }}][hum]" value="{{ $val('hum', 'hum') }}"></div>
             @endif
           </div>
           <div class="msg" data-o="msg"></div>
-          @foreach (['cur', 'high', 'low', 'hum', 'note'] as $k)@error("r.{$p->id}.{$k}")<div class="err">{{ $message }}</div>@enderror @endforeach
+          @foreach (['cur', 'hum', 'note'] as $k)@error("r.{$p->id}.{$k}")<div class="err">{{ $message }}</div>@enderror @endforeach
           <div class="note" data-o="note" {{ ($r?->status === 'out' || old("r.{$p->id}.note") || $r?->note) ? '' : 'hidden' }}>
-            <textarea name="r[{{ $p->id }}][note]" placeholder="الإجراء الفوري: التحقق بجهاز آخر · السبب (باب مفتوح، كهرباء، عطل) · إبلاغ المدير الصيدلي ووقته">{{ old("r.{$p->id}.note", $r?->note) }}</textarea>
+            <textarea name="r[{{ $p->id }}][note]" placeholder="ملاحظة أو إجراء فوري (اختياري): التحقق بجهاز آخر · السبب · ما تم">{{ old("r.{$p->id}.note", $r?->note) }}</textarea>
           </div>
           @if ($r)
             <div class="prev">سجلها {{ $r->user?->displayName() ?? '—' }} <span class="code">{{ substr((string) $r->time, 0, 5) }}</span>@if ($r->editor) · عدّلها {{ $r->editor->displayName() }}@endif</div>
@@ -124,15 +125,16 @@
                 <a href="{{ $f03Url }}?reading={{ $r->id }}" class="f03 open">⚠ فتح تقرير انحراف الحرارة F03</a>
               @endif
             @endif
-          @elseif ($o)
-            <div class="prev">{{ $shift === 'am' ? 'المساء' : 'الصباح' }}: <span class="code">{{ \App\Models\TempPoint::n($o->cur) }}°</span></div>
+          @endif
+          @if ($others->isNotEmpty())
+            <div class="others">@foreach ($others as $ok => $o)<span class="{{ $o->status === 'out' ? 'out' : '' }}" title="{{ \App\Support\TempRounds::label((string) $ok) }}">{{ \App\Support\TempRounds::short((string) $ok) }}: {{ \App\Models\TempPoint::n($o->cur) }}°{{ $o->hum !== null ? ' · ' . $o->hum . '%' : '' }}</span>@endforeach</div>
           @endif
         </div>
       @endforeach
       </fieldset>
 
       @if ($canEdit)
-        <div class="bar"><button type="submit" class="btn">حفظ قراءات {{ $shift === 'am' ? 'الصباح' : 'المساء' }}</button></div>
+        <div class="bar"><button type="submit" class="btn">حفظ {{ \App\Support\TempRounds::label($shift) }}</button></div>
       @endif
     </form>
   @endif
@@ -153,7 +155,7 @@
   function check(card) {
     const d = card.dataset, lim = { min: num(d.min), max: num(d.max), wl: num(d.wl), wh: num(d.wh), h: num(d.hmax) };
     const get = k => { const i = card.querySelector(`[name$="[${k}]"]`); return i ? num(i.value) : null; };
-    const vals = [['الحالية', get('cur')], ['الأعلى', get('high')], ['الأدنى', get('low')]];
+    const vals = [['الحرارة', get('cur')]];
     const out = [], warn = [];
     vals.forEach(([l, v]) => {
       if (v === null) return;
@@ -169,7 +171,7 @@
     card.classList.remove('ok', 'warn', 'out'); if (st) card.classList.add(st);
     const m = card.querySelector('[data-o=msg]');
     m.className = 'msg ' + st;
-    m.textContent = st === 'out' ? '⚠ خارج الحدود: ' + out.join(' · ') + ' — اكتب الإجراء الفوري، وبعد الحفظ افتح تقرير الانحراف.'
+    m.textContent = st === 'out' ? '⚠ خارج الحدود: ' + out.join(' · ') + ' — تُحفظ عادي، ويصل إشعار لمدير الجودة والمدير الصيدلي.'
       : st === 'warn' ? '⚡ إنذار مبكر: ' + warn.join(' · ') : st === 'ok' ? 'ضمن الحدود' : '';
     card.querySelector('[data-o=ico]').textContent = st === 'out' ? '⚠️' : st === 'warn' ? '⚡' : st === 'ok' ? '✓' : '';
     const note = card.querySelector('[data-o=note]');
@@ -177,7 +179,7 @@
   }
   document.querySelectorAll('[data-pt]').forEach(card => {
     card.addEventListener('input', () => check(card));
-    if (card.querySelector('[name$="[cur]"]').value !== '') check(card);
+    if (card.querySelector('[name$="[cur]"]').value !== '' || (card.querySelector('[name$="[hum]"]') || {}).value) check(card);
   });
 })();
 </script>

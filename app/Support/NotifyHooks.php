@@ -137,14 +137,24 @@ class NotifyHooks
         if ($t->status !== 'out' || (! $t->wasRecentlyCreated && ! $t->wasChanged('status'))) {
             return;
         }
+        $tenant = (int) $t->tenant_id;
         $p = TempPoint::withoutGlobalScope('tenant')->find($t->point_id);
         $date = $t->date?->format('Y-m-d');
-        $shift = TempReading::SHIFTS[$t->shift] ?? $t->shift;
-        $limits = $p && $p->t_min !== null && $p->t_max !== null ? " (الحد {$p->t_min}–{$p->t_max}°)" : '';
+        $tempOut = $p && $t->cur !== null && ($t->cur > $p->t_max || $t->cur < $p->t_min);
+        $humOut = $p && $p->h_max && $t->hum !== null && $t->hum > $p->h_max;
+        $what = $tempOut && $humOut ? 'انحراف حرارة ورطوبة' : ($humOut ? 'انحراف رطوبة' : 'انحراف حرارة');
 
-        Notifier::event((int) $t->tenant_id, 'temp',
-            'انحراف حرارة · جولة ' . $shift,
-            ($p?->name ?? 'نقطة') . ': ' . rtrim(rtrim(number_format((float) $t->cur, 1), '0'), '.') . '°' . $limits . ($t->note ? ' · ' . mb_substr($t->note, 0, 100) : ''),
+        $parts = [];
+        if ($t->cur !== null) {
+            $parts[] = TempPoint::n($t->cur) . '°' . ($p ? ' (الحد ' . TempPoint::n($p->t_min) . '–' . TempPoint::n($p->t_max) . '°)' : '');
+        }
+        if ($t->hum !== null && $p?->h_max) {
+            $parts[] = 'رطوبة ' . $t->hum . '٪ (الحد ' . $p->h_max . '٪)';
+        }
+
+        Notifier::event($tenant, 'temp',
+            $what . ' · ' . TempRounds::label($t->shift, $tenant),
+            ($p?->name ?? 'نقطة') . ': ' . implode(' · ', $parts) . ($t->note ? ' · ' . mb_substr($t->note, 0, 100) : ''),
             route('forms.page', 'temp-excursion') . '?reading=' . $t->id,
             'temp-' . $date . '-' . $t->shift, true);
     }

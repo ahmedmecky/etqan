@@ -7,6 +7,7 @@ use App\Models\TempCheck;
 use App\Models\TempPoint;
 use App\Models\TempReading;
 use App\Models\User;
+use App\Support\TempRounds;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,8 @@ use Illuminate\View\View;
 
 /**
  * التحكم في الحرارة والرطوبة (SH-030)
- *   جولة القراءات (الصباح / المساء) لكل النقاط · نقاط المراقبة وحدودها
+ *   جولات القراءة اليومية (عددها وأوقاتها من الإعدادات) لكل النقاط: قراءة واحدة للحرارة (+ الرطوبة)
+ *   القراءة خارج الحدود تُحفظ عادي ويصل إشعار لمدير الجودة والمدير الصيدلي · نقاط المراقبة وحدودها
  *   سجل نصف الشهر لكل نقطة (F01 · F02) · التقرير الشهري · المراجعة الأسبوعية · اختبار الإنذار
  */
 class TemperatureController extends Controller
@@ -67,8 +69,9 @@ class TemperatureController extends Controller
         if ($date->gt($today)) {
             $date = $today->copy();
         }
-        $shift = in_array($request->query('shift'), ['am', 'pm'], true) ? $request->query('shift')
-            : (Carbon::now(self::TZ)->hour < 14 ? 'am' : 'pm');
+        $keys = TempRounds::keys();
+        $shift = in_array((string) $request->query('shift'), $keys, true) ? (string) $request->query('shift')
+            : ($date->isSameDay($today) ? TempRounds::current() : $keys[0]);
 
         $points = self::points();
         $readings = TempReading::query()->with(['user', 'editor'])->whereDate('date', $date->toDateString())->get()
@@ -78,9 +81,10 @@ class TemperatureController extends Controller
             'points'   => $points,
             'date'     => $date,
             'shift'    => $shift,
+            'rounds'   => TempRounds::times(),
             'cur'      => $readings->get($shift, collect()),
-            'other'    => $readings->get($shift === 'am' ? 'pm' : 'am', collect()),
-            'done'     => ['am' => $readings->get('am', collect())->count(), 'pm' => $readings->get('pm', collect())->count()],
+            'all'      => $readings,
+            'done'     => collect($keys)->mapWithKeys(fn ($k) => [$k => $readings->get($k, collect())->count()])->all(),
             'isToday'  => $date->isSameDay($today),
             'canEdit'  => $date->isSameDay($today) || self::canReview($request->user()),
             'canManage'=> self::canManage($request->user()),
@@ -95,19 +99,16 @@ class TemperatureController extends Controller
         $today = self::today();
         $data = $request->validate([
             'date'  => ['required', 'date_format:Y-m-d', 'before_or_equal:' . $today->toDateString()],
-            'shift' => ['required', Rule::in(['am', 'pm'])],
+            'shift' => ['required', Rule::in(TempRounds::keys())],
             'time'  => ['nullable', 'date_format:H:i'],
             'r'     => ['array'],
             'r.*.cur'  => ['nullable', 'numeric', 'between:-40,60'],
-            'r.*.high' => ['nullable', 'numeric', 'between:-40,60'],
-            'r.*.low'  => ['nullable', 'numeric', 'between:-40,60'],
             'r.*.hum'  => ['nullable', 'integer', 'between:0,100'],
             'r.*.note' => ['nullable', 'string', 'max:500'],
         ], [
+            'shift.in' => 'رقم القراءة غير صحيح.',
             'date.before_or_equal' => 'لا يمكن تسجيل قراءات لتاريخ لم يأتِ بعد.',
             'r.*.cur.numeric'  => 'القراءة يجب أن تكون رقماً.',
-            'r.*.high.numeric' => 'القراءة يجب أن تكون رقماً.',
-            'r.*.low.numeric'  => 'القراءة يجب أن تكون رقماً.',
             'r.*.cur.between'  => 'قراءة غير منطقية (بين -٤٠ و٦٠).',
             'r.*.hum.between'  => 'الرطوبة بين ٠ و١٠٠٪.',
         ]);
@@ -123,35 +124,19 @@ class TemperatureController extends Controller
             if (! $p) {
                 continue;
             }
-            $v = fn ($k) => isset($r[$k]) && $r[$k] !== '' && $r[$k] !== null ? (float) $r[$k] : null;
-            [$cur, $high, $low] = [$v('cur'), $v('high'), $v('low')];
+            $cur = isset($r['cur']) && $r['cur'] !== '' && $r['cur'] !== null ? (float) $r['cur'] : null;
             $hum = isset($r['hum']) && $r['hum'] !== '' && $r['hum'] !== null ? (int) $r['hum'] : null;
             $note = trim((string) ($r['note'] ?? ''));
-            if ($cur === null && $high === null && $low === null && $hum === null) {
+            if ($cur === null && $hum === null) {
                 continue;   // لم تُسجل: تظهر ناقصة
             }
             if ($cur === null) {
-                $errors["r.{$pid}.cur"] = "{$p->name}: سجل القراءة الحالية.";
+                $errors["r.{$pid}.cur"] = "{$p->name}: سجل درجة الحرارة.";
                 continue;
             }
-            if ($high !== null && $low !== null && $high < $low) {
-                $errors["r.{$pid}.high"] = "{$p->name}: الأعلى أقل من الأدنى.";
-                continue;
-            }
-            if (($high !== null && $cur > $high) || ($low !== null && $cur < $low)) {
-                $errors["r.{$pid}.cur"] = "{$p->name}: القراءة الحالية يجب أن تكون بين الأدنى والأعلى.";
-                continue;
-            }
-            if ($p->h_max && $hum === null) {
-                $errors["r.{$pid}.hum"] = "{$p->name}: سجل الرطوبة.";
-                continue;
-            }
-            [$status] = $p->evaluate($cur, $high, $low, $hum);
-            if ($status === 'out' && $note === '') {
-                $errors["r.{$pid}.note"] = "{$p->name}: القراءة خارج الحدود. اكتب الإجراء الفوري (التحقق بجهاز آخر، السبب، إبلاغ المدير الصيدلي).";
-                continue;
-            }
-            $rows[$p->id] = compact('cur', 'high', 'low', 'hum', 'note', 'status');
+            // خارج الحدود لا يمنع الحفظ: يُسجل كما هو ويصل إشعار للجودة والمدير الصيدلي (NotifyHooks)
+            [$status] = $p->evaluate($cur, null, null, $hum);
+            $rows[$p->id] = compact('cur', 'hum', 'note', 'status');
         }
         if ($errors) {
             throw ValidationException::withMessages($errors);
@@ -161,7 +146,7 @@ class TemperatureController extends Controller
         foreach ($rows as $pid => $x) {
             $attrs = [
                 'time' => $data['time'] ?? Carbon::now(self::TZ)->format('H:i'),
-                'cur' => $x['cur'], 't_high' => $x['high'], 't_low' => $x['low'], 'hum' => $x['hum'],
+                'cur' => $x['cur'], 't_high' => null, 't_low' => null, 'hum' => $x['hum'],
                 'status' => $x['status'], 'note' => $x['note'] ?: null,
             ];
             $old = $existing->get($pid);
@@ -179,7 +164,7 @@ class TemperatureController extends Controller
         $missing = $points->count() - $existing->keys()->merge(array_keys($rows))->unique()->count();
         $msg = 'تم حفظ ' . count($rows) . ' قراءة.';
         if ($missing > 0) $msg .= " لم تُسجل {$missing} نقطة بعد.";
-        if ($out) $msg .= " {$out} قراءة خارج الحدود: افتح تقرير انحراف الحرارة (F03) لكل منها.";
+        if ($out) $msg .= " {$out} قراءة خارج الحدود حُفظت، وأُرسل إشعار لمدير الجودة والمدير الصيدلي.";
 
         return redirect()->route('temperature.round', ['date' => $data['date'], 'shift' => $data['shift']])->with('status', $msg);
     }
@@ -249,7 +234,7 @@ class TemperatureController extends Controller
 
         return response()->json(['reading' => [
             'id' => $reading->id, 'pointId' => $reading->point_id, 'date' => $reading->date->toDateString(),
-            'shift' => $reading->shift, 'time' => substr((string) $reading->time, 0, 5),
+            'shift' => $reading->shift, 'shiftLabel' => TempRounds::label($reading->shift), 'time' => substr((string) $reading->time, 0, 5),
             'cur' => $reading->cur, 'high' => $reading->t_high, 'low' => $reading->t_low, 'hum' => $reading->hum,
             'status' => $reading->status, 'note' => $reading->note,
             'f03' => self::excursions()->get($reading->id)['id'] ?? null,   // تقرير موجود لنفس القراءة
@@ -282,7 +267,11 @@ class TemperatureController extends Controller
             $days[] = $d->copy();
         }
 
+        // أرقام القراءات: إعداد المخزن + أي قراءة قديمة برقم أكبر في الفترة
+        $keys = collect(TempRounds::keys())->merge($readings->flatten()->pluck('shift'))->map(fn ($k) => (string) $k)->unique()->sort()->values()->all();
+
         return view('temperature.sheet', compact('points', 'point', 'month', 'half', 'from', 'to', 'readings', 'reviews', 'alarms', 'days') + [
+            'keys' => $keys, 'times' => TempRounds::times(),
             'exc' => self::excursions(),
             'tenant' => $request->user()->tenant,
         ]);
@@ -300,14 +289,12 @@ class TemperatureController extends Controller
         $readings = TempReading::query()->with('point')->whereBetween('date', [$start->toDateString(), $end->toDateString()])->get();
         $exc = self::excursions();
 
-        // الجولات المتوقعة: كل يوم عمل (عدا الجمعة) حتى أمس صباحاً ومساءً، واليوم حسب الوقت
-        $hour = Carbon::now(self::TZ)->hour;
+        // الجولات المتوقعة: كل يوم عمل (عدا الجمعة) بعدد القراءات المحدد، واليوم ما مر على وقته ٣ ساعات
         $slots = [];
         for ($d = $start->copy(); $d->lte($end) && $d->lte($today); $d->addDay()) {
-            if ($d->dayOfWeek === Carbon::FRIDAY) continue;
-            $isToday = $d->isSameDay($today);
-            if (! $isToday || $hour >= 12) $slots[] = [$d->toDateString(), 'am'];
-            if (! $isToday || $hour >= 20) $slots[] = [$d->toDateString(), 'pm'];
+            foreach (TempRounds::dueOn($d) as $k) {
+                $slots[] = [$d->toDateString(), $k];
+            }
         }
         $have = $readings->map(fn ($r) => $r->point_id . '|' . $r->date->toDateString() . '|' . $r->shift)->flip();
 
@@ -399,8 +386,8 @@ class TemperatureController extends Controller
         $now = Carbon::now(self::TZ);
         if ($now->dayOfWeek !== Carbon::FRIDAY) {
             $done = TempReading::query()->whereDate('date', $now->toDateString())->get()->groupBy('shift')->map->count();
-            if ($now->hour >= 12 && ($done['am'] ?? 0) < $count) $res['missing'] = 'الصباح';
-            elseif ($now->hour >= 20 && ($done['pm'] ?? 0) < $count) $res['missing'] = 'المساء';
+            $miss = collect(TempRounds::dueOn($now->copy()->startOfDay(), $user->tenant_id))->filter(fn ($k) => ($done[$k] ?? 0) < $count);
+            if ($miss->isNotEmpty()) $res['missing'] = $miss->map(fn ($k) => TempRounds::label($k, $user->tenant_id))->implode(' · ');
         }
         $linked = self::excursions()->keys();
         $res['open'] = TempReading::query()->where('status', 'out')->where('date', '>=', $now->copy()->subDays(60)->toDateString())

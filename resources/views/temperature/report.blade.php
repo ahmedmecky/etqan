@@ -66,7 +66,9 @@
         <thead><tr><th>النقطة</th><th>الحدود</th><th>القراءات</th><th>أعلى</th><th>أدنى</th><th>المتوسط</th><th>أعلى رطوبة</th><th>خارج الحدود</th><th>إنذار مبكر</th><th>الناقص</th></tr></thead>
         <tbody>
           @forelse ($stats as $s)
-            @php($p = $s['p'])
+            @php
+              $p = $s['p'];
+            @endphp
             <tr>
               <td><a href="{{ route('temperature.sheet', ['point' => $p->id, 'month' => $month]) }}"><b>{{ $p->name }}</b></a><div class="by">{{ $p->typeLabel() }}{{ $p->is_active ? '' : ' · موقوفة' }}</div></td>
               <td class="by">{{ $p->limitsText() }}</td>
@@ -80,7 +82,7 @@
               <td>
                 @if ($s['missing']->isEmpty())<span class="ok">✓</span>
                 @else
-                  <div class="miss">{{ $s['missing']->count() }}: {{ $s['missing']->take(8)->map(fn ($m) => \Illuminate\Support\Carbon::parse($m[0])->format('d/m') . ($m[1] === 'am' ? ' ص' : ' م'))->implode('، ') }}{{ $s['missing']->count() > 8 ? '…' : '' }}</div>
+                  <div class="miss">{{ $s['missing']->count() }}: {{ $s['missing']->take(8)->map(fn ($m) => \Illuminate\Support\Carbon::parse($m[0])->format('d/m') . ' ' . \App\Support\TempRounds::short($m[1]))->implode('، ') }}{{ $s['missing']->count() > 8 ? '…' : '' }}</div>
                 @endif
               </td>
             </tr>
@@ -96,14 +98,16 @@
     <h2 style="font-size:16px;margin:0 0 8px">القراءات خارج الحدود ({{ $outs->count() }})</h2>
     <div class="tbl-wrap">
       <table class="t">
-        <thead><tr><th>التاريخ</th><th>النقطة</th><th>الحالية / الأعلى / الأدنى</th><th>الرطوبة</th><th>الإجراء الفوري</th><th>تقرير الانحراف</th></tr></thead>
+        <thead><tr><th>التاريخ</th><th>النقطة</th><th>الحرارة</th><th>الرطوبة</th><th>الإجراء الفوري</th><th>تقرير الانحراف</th></tr></thead>
         <tbody>
           @forelse ($outs as $r)
-            @php($x = $exc->get($r->id))
+            @php
+              $x = $exc->get($r->id);
+            @endphp
             <tr>
-              <td class="v">{{ $r->date->format('Y-m-d') }} {{ $r->shift === 'am' ? 'ص' : 'م' }}</td>
+              <td class="v">{{ $r->date->format('Y-m-d') }} {{ \App\Support\TempRounds::short($r->shift) }}</td>
               <td>{{ $r->point?->name }}</td>
-              <td class="v">{{ $n($r->cur) }} / {{ $n($r->t_high) ?: '—' }} / {{ $n($r->t_low) ?: '—' }}</td>
+              <td class="v">{{ $n($r->cur) }}{{ $r->t_high !== null ? ' (أعلى ' . $n($r->t_high) . ')' : '' }}</td>
               <td class="v">{{ $r->hum !== null ? $r->hum . '%' : '—' }}</td>
               <td class="by" style="max-width:320px">{{ $r->note }}</td>
               <td>
@@ -147,7 +151,9 @@
       <h2 style="font-size:16px;margin:0 0 6px">اختبار الإنذار الشهري</h2>
       <div class="by" style="margin-bottom:6px">اختبار إنذار كل ثلاجة وغرفة تبريد شهرياً والتأكد من وصوله للمسؤولين.</div>
       @forelse ($cold as $p)
-        @php($last = $alarms->get($p->id)?->first())
+        @php
+          $last = $alarms->get($p->id)?->first();
+        @endphp
         <div class="wk">
           <span><b>{{ $p->name }}</b>
             @if ($last)<span class="{{ $last->result === 'ok' ? 'ok' : 'bad' }}"> · {{ $last->result === 'ok' ? 'يعمل' : 'لا يعمل' }}</span> <span class="by v">{{ $last->date->format('d/m') }} · {{ $last->user?->displayName() }}</span>
@@ -177,9 +183,13 @@
       <table class="t">
         <thead><tr><th>الرقم</th><th>التاريخ</th><th>النقطة</th><th>المدة</th><th>القرار</th><th>الانحراف SH-008</th><th>الحالة</th></tr></thead>
         <tbody>
-          @php($stLabel = ['open' => 'لدى أمين المخزن', 'submitted' => 'بانتظار تقييم المدير الصيدلي', 'evaluated' => 'بانتظار اعتماد الجودة'])
+          @php
+            $stLabel = ['open' => 'لدى أمين المخزن', 'submitted' => 'بانتظار تقييم المدير الصيدلي', 'evaluated' => 'بانتظار اعتماد الجودة'];
+          @endphp
           @forelse ($f03 as $rec)
-            @php($d = $rec->data ?? [])
+            @php
+              $d = $rec->data ?? [];
+            @endphp
             <tr>
               <td><a href="{{ $f03Url }}?open={{ $rec->id }}" class="v"><b>{{ $rec->number }}</b></a></td>
               <td class="v">{{ $rec->record_date?->format('Y-m-d') }}</td>
