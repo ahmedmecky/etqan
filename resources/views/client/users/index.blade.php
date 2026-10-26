@@ -20,7 +20,10 @@
       <h1 class="page-title">مستخدمو {{ auth()->user()->tenant->name_ar }}</h1>
       <p class="page-sub" style="margin:0">{{ $users->count() }} مستخدم · {{ $users->where('is_active', true)->count() }} فعال</p>
     </div>
-    <a href="{{ route('client.users.create') }}" class="btn">+ مستخدم جديد</a>
+    <div class="actions">
+      <a href="{{ route('jobs.index') }}" class="btn ghost">الهيكل الوظيفي</a>
+      <a href="{{ route('client.users.create') }}" class="btn">+ مستخدم جديد</a>
+    </div>
   </div>
 
   <div class="card">
@@ -41,7 +44,7 @@
     <div class="tbl-wrap">
       <table class="t">
         <thead>
-          <tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الهاتف</th><th>الدور الوظيفي</th><th>آخر دخول</th><th>الحالة</th><th></th></tr>
+          <tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الهاتف</th><th>الدور الوظيفي</th><th>الوصف الوظيفي</th><th>آخر دخول</th><th>الحالة</th><th></th></tr>
         </thead>
         <tbody>
           @forelse ($users as $u)
@@ -54,6 +57,15 @@
               <td><span class="ltr">{{ $u->email }}</span></td>
               <td><span class="ltr">{{ $u->phone }}</span></td>
               <td>{{ $u->role?->name_ar }}</td>
+              <td>
+                @if ($u->job_code || $isAdmin)
+                  <a href="{{ route('jobs.user', $u) }}" target="_blank" title="طباعة الوصف الوظيفي">{{ \App\Support\JobLibrary::title($u->job_code ?: ($isAdmin ? 'JD-MG-01' : null)) }}</a>
+                  @if (count($u->extra_jobs ?? []))<div class="u-en">+ {{ count($u->extra_jobs) }} وظيفة إضافية</div>@endif
+                  @if (! $u->jd_ack_at && ! $isAdmin)<div class="u-en" style="color:var(--bad)">لم يوقع بالاستلام</div>@endif
+                @else
+                  <span class="u-en" style="color:var(--bad)">لم يُحدد</span>
+                @endif
+              </td>
               <td><span class="ltr">{{ $u->last_login_at?->timezone('Africa/Cairo')->format('Y-m-d H:i') ?? '—' }}</span></td>
               <td>
                 @if ($u->is_active)
@@ -78,7 +90,7 @@
               </td>
             </tr>
           @empty
-            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">
+            <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">
               {{ ($q !== '' || $roleId) ? 'لا توجد نتائج مطابقة.' : 'لا يوجد مستخدمون بعد. اضغط «مستخدم جديد».' }}
             </td></tr>
           @endforelse

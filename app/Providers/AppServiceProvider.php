@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\NotifyHooks;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // الإشعارات: الشكاوى · الحرارة · التفتيش الميداني · الاعتمادات
+        NotifyHooks::register();
     }
 }

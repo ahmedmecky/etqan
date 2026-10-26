@@ -52,6 +52,59 @@
         </div>
       </div>
 
+      <h3 style="font-size:15px;color:var(--brand);margin:18px 0 8px;border-top:1px solid var(--line);padding-top:14px">الوصف الوظيفي</h3>
+      <div class="grid">
+        <div class="field">
+          <label class="f" for="job_code">الوظيفة (من مكتبة الأوصاف الوظيفية)</label>
+          <select id="job_code" name="job_code">
+            <option value="">— لم تُحدد —</option>
+            @foreach ($jobGroups as $dept => $list)
+              <optgroup label="{{ $dept }}">
+                @foreach ($list as $code => $title)
+                  <option value="{{ $code }}" {{ old('job_code', $user->job_code) === $code ? 'selected' : '' }}>{{ $title }} · {{ $code }}</option>
+                @endforeach
+              </optgroup>
+            @endforeach
+          </select>
+        </div>
+        <div class="field">
+          <label class="f" for="hire_date">تاريخ التعيين</label>
+          <input type="date" id="hire_date" name="hire_date" class="ltr" value="{{ old('hire_date', $user->hire_date?->format('Y-m-d')) }}">
+        </div>
+      </div>
+      <details class="field" {{ count(old('extra_jobs', $user->extra_jobs ?? [])) ? 'open' : '' }}>
+        <summary style="cursor:pointer;font-weight:600">وظائف إضافية يشغلها نفس الموظف (للمخازن الصغيرة)</summary>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 14px;margin-top:8px;font-size:13.5px">
+          @foreach ($jobGroups as $dept => $list)
+            @foreach ($list as $code => $title)
+              <label class="chk" style="margin:0"><input type="checkbox" name="extra_jobs[]" value="{{ $code }}" {{ in_array($code, old('extra_jobs', $user->extra_jobs ?? []), true) ? 'checked' : '' }}> {{ $title }}</label>
+            @endforeach
+          @endforeach
+        </div>
+      </details>
+      @if ($user->exists && $user->job_code)
+        <p class="page-sub"><a href="{{ route('jobs.user', $user) }}" target="_blank">طباعة الوصف الوظيفي لهذا الموظف ←</a>
+          @if ($user->jd_ack_at) · <span style="color:var(--ok)">وقّع بالاستلام {{ $user->jd_ack_at->format('Y-m-d') }}</span>@endif</p>
+      @endif
+
+      <details class="field" style="border-top:1px solid var(--line);padding-top:12px">
+        <summary style="cursor:pointer;font-weight:700;color:var(--brand)">استثناءات الصلاحيات لهذا الشخص (اختياري)</summary>
+        <p class="page-sub" style="margin:6px 0">اترك «حسب الدور» إلا إذا احتاج هذا الشخص صلاحية مختلفة عن زملائه في نفس الدور (مثل: أمين مخزن مفوض بالتفتيش). صلاحيات الأدوار: <a href="{{ route('client.permissions.index') }}" target="_blank">الصلاحيات</a>.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px 16px;font-size:13.5px">
+          @foreach (\App\Support\Access::MODULES as $mk => $m)
+            @php
+              $ov = $user->exists ? \App\Support\Access::userOverride($user, $mk) : null;
+            @endphp
+            <label style="display:flex;justify-content:space-between;align-items:center;gap:8px">{{ $m[0] }}
+              <select name="perm[{{ $mk }}]" style="width:auto">
+                <option value="">حسب الدور</option>
+                @foreach (\App\Support\Access::LEVELS as $lv => $lt)<option value="{{ $lv }}" {{ old('perm.' . $mk, $ov) === $lv ? 'selected' : '' }}>{{ $lt }}</option>@endforeach
+              </select>
+            </label>
+          @endforeach
+        </div>
+      </details>
+
       <div class="field">
         <input type="hidden" name="is_active" value="0">
         <label class="chk"><input type="checkbox" name="is_active" value="1" {{ old('is_active', $user->is_active) ? 'checked' : '' }}> الحساب فعال (يمكنه الدخول)</label>
@@ -66,3 +119,15 @@
     </form>
   </div>
 @endsection
+
+@push('scripts')
+<script>
+  // اقتراح الوظيفة حسب الدور إذا لم تُحدد
+  (function () {
+    const map = @json($roleJobs);
+    const role = document.getElementById('role_id'), job = document.getElementById('job_code');
+    if (!role || !job) return;
+    role.addEventListener('change', () => { if (!job.value && map[role.value]) job.value = map[role.value]; });
+  })();
+</script>
+@endpush

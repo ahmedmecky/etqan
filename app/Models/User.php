@@ -14,6 +14,10 @@ class User extends Authenticatable
     protected $fillable = [
         'tenant_id',
         'role_id',
+        'job_code',
+        'extra_jobs',
+        'hire_date',
+        'jd_ack_at',
         'name',
         'name_ar',
         'email',
@@ -35,6 +39,9 @@ class User extends Authenticatable
             'last_login_at'     => 'datetime',
             'password'          => 'hashed',
             'is_active'         => 'boolean',
+            'extra_jobs'        => 'array',
+            'hire_date'         => 'date',
+            'jd_ack_at'         => 'date',
         ];
     }
 
@@ -62,6 +69,12 @@ class User extends Authenticatable
     public function hasRole(string ...$keys): bool
     {
         return $this->role && in_array($this->role->key, $keys, true);
+    }
+
+    /** كل الوظائف (الأساسية + الإضافية) من مكتبة الأوصاف الوظيفية */
+    public function jobCodes(): array
+    {
+        return array_values(array_unique(array_filter(array_merge([$this->job_code], $this->extra_jobs ?? []))));
     }
 
     /** الاسم المعروض: العربي إن وجد */

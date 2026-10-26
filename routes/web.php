@@ -20,6 +20,11 @@ use App\Http\Controllers\Portal\ComplaintPortalController;
 use App\Http\Controllers\Portal\FieldInspectionPortalController;
 use App\Http\Controllers\FieldInspectionController;
 use App\Http\Controllers\QmsMapController;
+use App\Http\Controllers\JobController;
+use App\Http\Controllers\Client\PermissionController;
+use App\Http\Controllers\Client\NotifyRuleController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Middleware\ModuleGate;
 use App\Http\Controllers\TemperatureController;
 use App\Http\Controllers\TrainingController;
 use App\Support\FormRegistry;
@@ -92,6 +97,16 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::patch('/users/{user}/toggle', [UserController::class, 'toggle'])->name('users.toggle');
 
+        // الصلاحيات: الأدوار × الشاشات (الافتراضي من RACI)
+        Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');
+        Route::put('/permissions', [PermissionController::class, 'update'])->name('permissions.update');
+        Route::post('/permissions/reset', [PermissionController::class, 'reset'])->name('permissions.reset');
+
+        // الإشعارات: مستلمو كل حدث · إشعار تجريبي لمستخدم
+        Route::get('/notifications', [NotifyRuleController::class, 'index'])->name('notify.index');
+        Route::put('/notifications', [NotifyRuleController::class, 'update'])->name('notify.update');
+        Route::post('/notifications/test/{user}', [NotifyRuleController::class, 'test'])->whereNumber('user')->middleware('throttle:10,1')->name('notify.test');
+
         Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
         Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
         Route::patch('/settings/portal', [SettingsController::class, 'togglePortal'])->name('settings.portal.toggle');
@@ -110,8 +125,19 @@ Route::middleware(['auth', 'active'])->group(function () {
         });
     });
 
+    // الإشعارات: الجرس · الصندوق · تفعيل الإشعار على الجهاز (كل مستخدمي المخزن)
+    Route::middleware('level:2,3')->prefix('notifications')->name('notifications.')->group(function () {
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::get('/feed', [NotificationController::class, 'feed'])->name('feed');
+        Route::get('/{id}/open', [NotificationController::class, 'open'])->whereNumber('id')->name('open');
+        Route::post('/read-all', [NotificationController::class, 'readAll'])->name('readAll');
+        Route::post('/subscribe', [NotificationController::class, 'subscribe'])->middleware('throttle:20,1')->name('subscribe');
+        Route::post('/unsubscribe', [NotificationController::class, 'unsubscribe'])->name('unsubscribe');
+        Route::post('/test', [NotificationController::class, 'test'])->middleware('throttle:6,1')->name('test');
+    });
+
     // شاشات النماذج: مدير العميل ومستخدمو المخزن
-    Route::middleware('level:2,3')
+    Route::middleware(['level:2,3', ModuleGate::class])
         ->prefix('forms/{form}')
         ->where(['form' => FormRegistry::pattern()])
         ->name('forms.')
@@ -125,8 +151,8 @@ Route::middleware(['auth', 'active'])->group(function () {
             Route::delete('/records/{record}', [FormRecordController::class, 'destroy'])->whereNumber('record')->name('records.destroy');
         });
 
-    // متابعة قرارات الاجتماعات (SH-034-F03)
-    Route::middleware('level:2,3')->group(function () {
+    // متابعة قرارات الاجتماعات (SH-034-F03) · كل شاشات المخزن تمر ببوابة الصلاحيات
+    Route::middleware(['level:2,3', ModuleGate::class])->group(function () {
         Route::get('/decisions', [DecisionController::class, 'index'])->name('decisions.index');
         Route::put('/decisions/{record}/{key}', [DecisionController::class, 'update'])
             ->whereNumber('record')
@@ -190,6 +216,15 @@ Route::middleware(['auth', 'active'])->group(function () {
         // التدريب: تقرير الدورات والمحاضرين · سجل تدريب الموظف (SH-015)
         Route::get('/training', [TrainingController::class, 'index'])->name('training.index');
         Route::get('/training/employee', [TrainingController::class, 'employee'])->name('training.employee');
+
+        // الهيكل الوظيفي والأوصاف الوظيفية (SH-021)
+        Route::get('/jobs', [JobController::class, 'index'])->name('jobs.index');
+        Route::get('/jobs/{code}', [JobController::class, 'edit'])->where('code', 'JD-[A-Z]{2}-\d{2}')->name('jobs.edit');
+        Route::put('/jobs/{code}', [JobController::class, 'update'])->where('code', 'JD-[A-Z]{2}-\d{2}')->name('jobs.update');
+        Route::get('/jobs/{code}/print', [JobController::class, 'printJob'])->where('code', 'JD-[A-Z]{2}-\d{2}')->name('jobs.print');
+        Route::get('/jobs/user/{user}', [JobController::class, 'printUser'])->whereNumber('user')->name('jobs.user');
+        Route::post('/jobs/user/{user}/ack', [JobController::class, 'acknowledge'])->whereNumber('user')->name('jobs.ack');
+        Route::get('/my-job', [JobController::class, 'mine'])->name('jobs.mine');
 
         // خريطة نظام الجودة ومصفوفة المسؤوليات
         Route::get('/qms-map', QmsMapController::class)->name('qms.map');

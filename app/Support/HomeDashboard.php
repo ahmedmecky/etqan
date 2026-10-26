@@ -105,13 +105,13 @@ class HomeDashboard
                 'key' => 'quality', 'title' => 'إدارة الجودة والامتثال', 'icon' => 'shield', 'cols' => 4,
                 'cards' => [
                     ['title' => 'الإجراءات التصحيحية والوقائية', 'desc' => 'متابعة وتنفيذ الانحرافات والإجراءات التصحيحية والوقائية', 'icon' => 'shield', 'tone' => 'teal',
-                        'url' => route('forms.page', 'deviation'), 'count' => $n($devOpen->count()) . ' مفتوح', 'warn' => $devLate ? $devLate . ' متأخر' : null,
+                        'm' => 'deviation', 'url' => route('forms.page', 'deviation'), 'count' => $n($devOpen->count()) . ' مفتوح', 'warn' => $devLate ? $devLate . ' متأخر' : null,
                         'links' => [['سجل الانحرافات', route('deviations.index')]], 'code' => 'SH-008'],
                     ['title' => 'التفتيش الذاتي', 'desc' => 'قوائم التفتيش وتقارير المراجعة الذاتية للمخزن', 'icon' => 'search', 'tone' => 'blue',
-                        'url' => route('forms.page', 'inspection'), 'count' => $n($siYear) . ' تقرير هذا العام',
+                        'm' => 'inspection', 'url' => route('forms.page', 'inspection'), 'count' => $n($siYear) . ' تقرير هذا العام',
                         'links' => [['تفتيش سريع', route('forms.page', 'inspection-quick')], ['التفتيش الميداني', route('field.index')], ['التغطية', route('inspections.index')]], 'code' => 'SH-012'],
                     ['title' => 'مراجعة الوثائق', 'desc' => 'مراجعة واعتماد الإجراءات والنماذج والأوصاف الوظيفية', 'icon' => 'file', 'tone' => 'blue',
-                        'url' => route('documents.queue'), 'count' => $n($docPending) . ' قيد المراجعة', 'code' => 'SH-014'],
+                        'm' => 'documents', 'url' => route('documents.queue'), 'count' => $n($docPending) . ' قيد المراجعة', 'code' => 'SH-014'],
                     ['title' => 'سجل الوثائق', 'desc' => 'أرشيف الوثائق المعتمدة والسارية وإصداراتها', 'icon' => 'folder', 'tone' => 'green',
                         'url' => route('documents.index'), 'count' => $n($docEff) . ' وثيقة سارية', 'code' => 'SH-014'],
                 ],
@@ -120,42 +120,43 @@ class HomeDashboard
                 'key' => 'ops', 'title' => 'العمليات والمخازن', 'icon' => 'box', 'cols' => 4,
                 'cards' => [
                     ['title' => 'استلام الشحنات', 'desc' => 'فحص الشحنات الواردة ومطابقتها مع المستندات وقرار الإفراج', 'icon' => 'truck', 'tone' => 'teal',
-                        'url' => route('forms.page', 'receiving'), 'count' => $n($rcvMon) . ' شحنة هذا الشهر', 'code' => 'SH-001'],
+                        'm' => 'receiving', 'url' => route('forms.page', 'receiving'), 'count' => $n($rcvMon) . ' شحنة هذا الشهر', 'code' => 'SH-001'],
                     ['title' => 'قراءات الحرارة', 'desc' => 'متابعة درجات الحرارة والرطوبة في المخازن والثلاجات', 'icon' => 'thermo', 'tone' => 'blue',
-                        'url' => route('temperature.round'), 'count' => $n($points) . ' موقع مراقبة',
+                        'm' => 'temperature', 'url' => route('temperature.round'), 'count' => $n($points) . ' موقع مراقبة',
                         'links' => [['التقرير الشهري', route('temperature.report')]], 'code' => 'SH-030'],
                     ['title' => 'تقرير انحراف الحرارة', 'desc' => 'تسجيل ومراجعة انحرافات درجات الحرارة والأصناف المتأثرة', 'icon' => 'alert', 'tone' => 'red',
-                        'url' => route('forms.page', 'temp-excursion'), 'count' => $n($teAll) . ' تقرير', 'warn' => $teOpen ? $teOpen . ' مفتوح' : null, 'code' => 'SH-030-F03'],
+                        'm' => 'temperature', 'url' => route('forms.page', 'temp-excursion'), 'count' => $n($teAll) . ' تقرير', 'warn' => $teOpen ? $teOpen . ' مفتوح' : null, 'code' => 'SH-030-F03'],
                     ['title' => 'محاضر الجرد', 'desc' => 'محاضر الجرد الدوري والعشوائي والسنوي للمخزون', 'icon' => 'clipboard', 'tone' => 'green',
-                        'url' => route('forms.page', 'inventory-count'), 'count' => $n($invAll) . ' محضر', 'code' => 'SH-016'],
+                        'm' => 'inventory', 'url' => route('forms.page', 'inventory-count'), 'count' => $n($invAll) . ' محضر', 'code' => 'SH-016'],
                 ],
             ],
             [
                 'key' => 'perf', 'title' => 'الأداء والتحسين', 'icon' => 'chart', 'cols' => 4,
                 'cards' => [
                     ['title' => 'متابعة القرارات', 'desc' => 'متابعة تنفيذ قرارات الاجتماعات المعتمدة', 'icon' => 'gear', 'tone' => 'teal',
-                        'url' => route('decisions.index'), 'count' => $n($decOpen) . ' قرار مفتوح', 'warn' => $decLate ? $decLate . ' متأخر' : null, 'code' => 'SH-034'],
+                        'm' => 'meetings', 'url' => route('decisions.index'), 'count' => $n($decOpen) . ' قرار مفتوح', 'warn' => $decLate ? $decLate . ' متأخر' : null, 'code' => 'SH-034'],
                     ['title' => 'شكاوى العملاء', 'desc' => 'استلام الشكاوى وتصنيفها والتحقيق والرد عليها', 'icon' => 'users', 'tone' => 'purple',
-                        'url' => route('forms.page', 'complaint'), 'count' => $n($cmpOpen) . ' شكوى مفتوحة',
+                        'm' => 'complaint', 'url' => route('forms.page', 'complaint'), 'count' => $n($cmpOpen) . ' شكوى مفتوحة',
                         'links' => [['سجل الشكاوى · ' . $n($cmpYear) . ' هذا العام', route('complaints.index')]], 'code' => 'SH-007'],
                     ['title' => 'فحص دقة التحضير', 'desc' => 'عينة عشوائية من الطلبيات قبل الخروج · الدقة حسب الزون والمحضر', 'icon' => 'check', 'tone' => 'orange',
-                        'url' => route('forms.page', 'order-check'), 'count' => $n($ocMon) . ' فحص هذا الشهر',
+                        'm' => 'ordercheck', 'url' => route('forms.page', 'order-check'), 'count' => $n($ocMon) . ' فحص هذا الشهر',
                         'links' => [['تقرير الزونات', route('orderchecks.index')]], 'code' => 'SH-004'],
                     ['title' => 'تقييم الأداء الشهري', 'desc' => 'تقييم أداء الموظفين شهرياً بمؤشرات كل وظيفة', 'icon' => 'target', 'tone' => 'green',
-                        'url' => route('forms.page', 'kpi'), 'count' => $n($kpiMon) . ' تقييم هذا الشهر',
+                        'm' => 'kpi', 'url' => route('forms.page', 'kpi'), 'count' => $n($kpiMon) . ' تقييم هذا الشهر',
                         'links' => [['سجل التقييمات', route('kpi.index')]], 'code' => 'KPI'],
                 ],
             ],
             [
-                'key' => 'people', 'title' => 'الموارد والتدريب', 'icon' => 'cap', 'cols' => 3,
+                'key' => 'people', 'title' => 'الموارد والتدريب', 'icon' => 'cap', 'cols' => \App\Http\Controllers\JobController::canManage($this->u) ? 4 : 3,
                 'cards' => [
                     ['title' => 'تدريب الموظفين', 'desc' => 'محضر التدريب: المتدربون بالاسم · التقييم · متابعة الفاعلية', 'icon' => 'user', 'tone' => 'blue',
-                        'url' => route('forms.page', 'training'), 'count' => $n($trN) . ' تدريب هذا العام', 'warn' => $trAl['fail'] ? $trAl['fail'] . ' لم يجتز' : null,
+                        'm' => 'training', 'url' => route('forms.page', 'training'), 'count' => $n($trN) . ' تدريب هذا العام', 'warn' => $trAl['fail'] ? $trAl['fail'] . ' لم يجتز' : null,
                         'links' => [['سجل تدريب موظف', route('training.employee')]], 'code' => 'SH-015-F03'],
                     ['title' => 'تقرير الدورات والمحاضرين', 'desc' => 'الساعات ونسبة الاجتياز والفاعلية لكل مدرب ونوع', 'icon' => 'calendar', 'tone' => 'blue',
-                        'url' => route('training.index'), 'count' => $n($trH) . ' ساعة تدريب · ' . $n($trT) . ' مدرب', 'code' => 'SH-015'],
+                        'm' => 'training', 'url' => route('training.index'), 'count' => $n($trH) . ' ساعة تدريب · ' . $n($trT) . ' مدرب', 'code' => 'SH-015'],
                     ['title' => 'محاضر الاجتماعات', 'desc' => 'محاضر اجتماعات الإدارة واللجان والأقسام', 'icon' => 'people', 'tone' => 'green',
-                        'url' => route('forms.page', 'meeting-minutes'), 'count' => $n($mmAll) . ' محضر', 'code' => 'SH-034'],
+                        'm' => 'meetings', 'url' => route('forms.page', 'meeting-minutes'), 'count' => $n($mmAll) . ' محضر', 'code' => 'SH-034'],
+                    ...(\App\Http\Controllers\JobController::canManage($this->u) ? [$this->jobsCard()] : []),
                 ],
             ],
         ];
@@ -178,12 +179,21 @@ class HomeDashboard
             ];
         }
 
+        // الصلاحيات: إخفاء ما لا يراه المستخدم
+        $sections = collect($sections)->map(function ($sec) {
+            $sec['cards'] = array_values(array_filter($sec['cards'], fn ($c) => empty($c['m']) || Access::can($this->u, $c['m'], 'view')));
+
+            return $sec;
+        })->filter(fn ($sec) => count($sec['cards']))->values()->all();
+
         return [
             'kpis' => [
                 ['label' => 'إجراءات نشطة', 'value' => $n($sopEff), 'icon' => 'clipcheck', 'tone' => 'blue', 'url' => route('documents.index', ['type' => 'sop', 'status' => 'effective']),
                     'hint' => $sopEff ? 'إجراء تشغيل قياسي ساري' : 'لم يُعتمد إجراء بعد'],
                 ['label' => 'مهام تحتاج متابعة', 'value' => $n($tasks), 'icon' => 'tasks', 'tone' => 'orange', 'url' => '#attention', 'hint' => 'تنتظرك أو متأخرة'],
-                ['label' => 'شكاوى مفتوحة', 'value' => $n($cmpOpen), 'icon' => 'alert', 'tone' => 'red', 'url' => route('complaints.index'), 'hint' => 'لم تُغلق بعد'],
+                Access::can($this->u, 'complaint', 'view')
+                    ? ['label' => 'شكاوى مفتوحة', 'value' => $n($cmpOpen), 'icon' => 'alert', 'tone' => 'red', 'url' => route('complaints.index'), 'hint' => 'لم تُغلق بعد']
+                    : ['label' => 'وثائق سارية', 'value' => $n($docEff), 'icon' => 'folder', 'tone' => 'green', 'url' => route('documents.index'), 'hint' => 'إجراءات ونماذج معتمدة'],
             ],
             'compliance' => ['value' => $compliance, 'parts' => array_map(fn ($v) => (int) round($v), $parts)],
             'sections' => $sections,
@@ -193,6 +203,26 @@ class HomeDashboard
     }
 
     /* ======================================================= */
+
+    /** بطاقة الهيكل الوظيفي: الوظائف بدون شاغل ومهامها لم تُوزع · مستخدمون بدون وصف */
+    private function jobsCard(): array
+    {
+        $settings = JobLibrary::settings();
+        $count = JobLibrary::headcount($this->u->tenant_id);
+        $open = JobLibrary::all()->filter(function ($j, $c) use ($settings, $count) {
+            if (($settings[$c]->mode ?? 'staffed') === 'na' || ! JobLibrary::needsCover($c, $settings, $count)) return false;
+            $re = $settings[$c]->reassign ?? [];
+
+            return collect(JobLibrary::groups($j))->contains(fn ($g) => empty($re[$g['key']]));
+        })->count();
+        $noJob = User::query()->where('tenant_id', $this->u->tenant_id)->where('is_active', true)->whereNull('job_code')
+            ->whereHas('role', fn ($q) => $q->where('level', 3))->count();
+
+        return ['title' => 'الهيكل الوظيفي والأوصاف', 'desc' => 'الوظائف في المخزن والشاغر منها · توزيع مهامه · طباعة وصف كل موظف', 'icon' => 'users', 'tone' => 'purple',
+            'url' => route('jobs.index'), 'count' => number_format(count($count)) . ' وظيفة مشغولة',
+            'warn' => $open ? $open . ' مهامها لم تُوزع' : ($noJob ? $noJob . ' بدون وصف' : null),
+            'links' => [['المستخدمون', route('client.users.index')]], 'code' => 'SH-021'];
+    }
 
     /** نفس منطق سجل الانحرافات: خطة متأخرة أو إجراء متأخر أو تحقق متأخر */
     private function deviationLate(array $d): bool
@@ -283,7 +313,7 @@ class HomeDashboard
         $manager = $u->isClientAdmin() || $u->hasRole('quality_manager') || $u->hasRole('pharmacist_manager');
 
         $portal = PortalStats::newComplaints($u);
-        if ($portal) $out->push(['n' => $portal, 'tone' => 'warn', 'icon' => 'alert', 'title' => 'شكوى جديدة بانتظار التصنيف',
+        if ($portal && Access::can($u, 'complaint', 'view')) $out->push(['n' => $portal, 'tone' => 'warn', 'icon' => 'alert', 'title' => 'شكوى جديدة بانتظار التصنيف',
             'sub' => "{$portal} من رابط الصيدليات", 'url' => route('complaints.index', ['tab' => 'open', 'src' => 'portal'])]);
 
         $temp = TemperatureController::homeAlerts($u);
@@ -326,6 +356,7 @@ class HomeDashboard
         $icons = ['deviation' => 'shield', 'receiving' => 'truck', 'complaint' => 'users', 'inspection' => 'search', 'inspection-quick' => 'search',
             'inventory-count' => 'clipboard', 'meeting-minutes' => 'people', 'training' => 'user', 'order-check' => 'check', 'temp-excursion' => 'thermo'];
 
+        $byCode = $byCode->filter(fn ($f) => Access::can($this->u, Access::FORM_MODULE[$f['key']] ?? '-', 'view'));
         $items = FormRecord::query()->whereIn('form_code', $byCode->keys())->orderByDesc('updated_at')->take(15)
             ->with('logs.user')->get()
             ->flatMap(function ($r) use ($byCode, $icons) {
@@ -339,7 +370,7 @@ class HomeDashboard
                 ]);
             });
 
-        $docs = DocumentLog::query()->with(['user', 'version'])->orderByDesc('id')->take(8)->get()
+        $docs = ! Access::can($this->u, 'documents', 'view') ? collect() : DocumentLog::query()->with(['user', 'version'])->orderByDesc('id')->take(8)->get()
             ->map(function ($l) {
                 $doc = Document::query()->find($l->document_id);
 
