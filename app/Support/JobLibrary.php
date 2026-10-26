@@ -8,20 +8,21 @@ use App\Models\User;
 use Illuminate\Support\Collection;
 
 /**
- * مكتبة الأوصاف الوظيفية (٣٠ وظيفة · resources/data/jobs.json)
+ * مكتبة الأوصاف الوظيفية (٣٢ وظيفة · resources/data/jobs.json)
  * النص ثابت كما اعتُمد (التحكم في الوثائق)، والمخزن يملأ الفراغات [ … ] فقط.
  * كل وصف: sections[] → blocks[] (p · list · kv · table · group)؛ مجموعات المهام في قسم «الواجبات والمسؤوليات».
  */
 class JobLibrary
 {
     public const DEPTS = [
-        'MG' => 'الإدارة', 'WH' => 'المخازن', 'DS' => 'التوزيع والحركة', 'SL' => 'المبيعات',
+        'MG' => 'الإدارة', 'PH' => 'الإدارة الصيدلية', 'QA' => 'إدارة الجودة', 'WH' => 'المخازن', 'DS' => 'التوزيع والحركة', 'SL' => 'المبيعات',
         'CM' => 'التجاري والمشتريات', 'FN' => 'الحسابات', 'HR' => 'الموارد البشرية',
     ];
 
     /** الوظيفة المقترحة لكل دور نظام (عند إنشاء مستخدم) */
     public const ROLE_DEFAULT = [
-        'client_admin' => 'JD-MG-01', 'receiving_storekeeper' => 'JD-WH-01', 'receiving_worker' => 'JD-WH-02',
+        'client_admin' => 'JD-MG-01', 'pharmacist_manager' => 'JD-PH-01', 'quality_manager' => 'JD-QA-01',
+        'receiving_storekeeper' => 'JD-WH-01', 'receiving_worker' => 'JD-WH-02',
         'wholesale_storekeeper' => 'JD-WH-03', 'retail_storekeeper' => 'JD-WH-04', 'control' => 'JD-WH-05', 'picker' => 'JD-WH-07',
         'driver' => 'JD-DS-01', 'distribution_supervisor' => 'JD-DS-03', 'fleet_supervisor' => 'JD-DS-04',
         'telesales' => 'JD-SL-01', 'wholesale_sales_manager' => 'JD-SL-03', 'retail_sales_supervisor' => 'JD-SL-04', 'sales_rep' => 'JD-SL-05',
