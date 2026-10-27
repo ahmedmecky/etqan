@@ -128,6 +128,7 @@ class HomeDashboard
                         'm' => 'temperature', 'url' => route('forms.page', 'temp-excursion'), 'count' => $n($teAll) . ' تقرير', 'warn' => $teOpen ? $teOpen . ' مفتوح' : null, 'code' => 'SH-030-F03'],
                     ['title' => 'محاضر الجرد', 'desc' => 'محاضر الجرد الدوري والعشوائي والسنوي للمخزون', 'icon' => 'clipboard', 'tone' => 'green',
                         'm' => 'inventory', 'url' => route('forms.page', 'inventory-count'), 'count' => $n($invAll) . ' محضر', 'code' => 'SH-016'],
+                    ...(Maintenance::canView($this->u) ? [$this->maintCard()] : []),
                 ],
             ],
             [
@@ -205,6 +206,19 @@ class HomeDashboard
     /* ======================================================= */
 
     /** بطاقة الهيكل الوظيفي: الوظائف بدون شاغل ومهامها لم تُوزع · مستخدمون بدون وصف */
+    /** بطاقة الصيانة والأجهزة */
+    private function maintCard(): array
+    {
+        $s = Maintenance::summary();
+        $bad = $s['contracts']['expired'] + $s['assets']['expired'];
+        $soon = $s['contracts']['soon'] + $s['assets']['soon'];
+
+        return ['title' => 'الصيانة والأجهزة', 'desc' => 'عقود الصيانة · الطفايات والمعايرة · الأجهزة بالرقم التسلسلي وجردها', 'icon' => 'gear', 'tone' => 'orange',
+            'url' => route('maint.index'), 'count' => number_format($s['assets']['all']) . ' جهاز · ' . number_format($s['contracts']['all']) . ' عقد',
+            'warn' => $bad ? $bad . ' منتهي' : ($soon ? $soon . ' يقترب' : null),
+            'links' => [['جرد الأجهزة', route('maint.count')], ['عقود الصيانة', route('maint.index', ['tab' => 'contracts'])]], 'code' => 'SH-023'];
+    }
+
     private function jobsCard(): array
     {
         $settings = JobLibrary::settings();
@@ -341,6 +355,10 @@ class HomeDashboard
             'sub' => "{$tr['pending']} محضر تدريب", 'url' => route('training.index')]);
         if (! empty($tr['effLate'])) $out->push(['n' => $tr['effLate'], 'tone' => 'warn', 'icon' => 'user', 'title' => 'متابعة فاعلية تدريب متأخرة',
             'sub' => "{$tr['effLate']} تدريب تجاوز موعد المتابعة", 'url' => route('training.index')]);
+
+        foreach (Maintenance::homeAlerts($u) as $m) {
+            $out->push($m);
+        }
 
         return $out;
     }

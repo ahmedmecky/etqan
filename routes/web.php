@@ -23,6 +23,7 @@ use App\Http\Controllers\QmsMapController;
 use App\Http\Controllers\FlowChartController;
 use App\Http\Controllers\DailyTaskController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\Client\PermissionController;
 use App\Http\Controllers\Client\NotifyRuleController;
@@ -243,6 +244,20 @@ Route::middleware(['auth', 'active'])->group(function () {
         // البحث العام · دليل الوثائق (SOP · KPI · JD)
         Route::get('/search', [SearchController::class, 'index'])->middleware('throttle:120,1')->name('search');
         Route::get('/library', [SearchController::class, 'library'])->name('library');
+
+        // الصيانة والأجهزة: العقود · الأجهزة بالرقم التسلسلي · الجرد الفعلي (SH-023 · SH-017)
+        Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maint.index');
+        Route::get('/maintenance/print', [MaintenanceController::class, 'print'])->name('maint.print');
+        Route::get('/maintenance/count', [MaintenanceController::class, 'count'])->name('maint.count');
+        Route::post('/maintenance/count', [MaintenanceController::class, 'saveCount'])->name('maint.count.save');
+        Route::post('/maintenance/contracts', [MaintenanceController::class, 'storeContract'])->name('maint.contracts.store');
+        Route::put('/maintenance/contracts/{contract}', [MaintenanceController::class, 'updateContract'])->whereNumber('contract')->name('maint.contracts.update');
+        Route::post('/maintenance/contracts/{contract}/renew', [MaintenanceController::class, 'renew'])->whereNumber('contract')->name('maint.contracts.renew');
+        Route::post('/maintenance/contracts/{contract}/toggle', [MaintenanceController::class, 'toggleContract'])->whereNumber('contract')->name('maint.contracts.toggle');
+        Route::get('/maintenance/contracts/{contract}/file', [MaintenanceController::class, 'file'])->whereNumber('contract')->name('maint.contracts.file');
+        Route::post('/maintenance/assets', [MaintenanceController::class, 'storeAsset'])->name('maint.assets.store');
+        Route::put('/maintenance/assets/{asset}', [MaintenanceController::class, 'updateAsset'])->whereNumber('asset')->name('maint.assets.update');
+        Route::delete('/maintenance/assets/{asset}', [MaintenanceController::class, 'destroyAsset'])->whereNumber('asset')->name('maint.assets.destroy');
 
         // مهام اليوم: التنفيذ · الإعداد (مدير المخزن ومدير الجودة)
         Route::get('/daily', [DailyTaskController::class, 'index'])->name('daily.index');

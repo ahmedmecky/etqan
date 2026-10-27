@@ -23,6 +23,8 @@ class Notifier
         'temp'      => ['label' => 'انحراف حرارة', 'hint' => 'أي قراءة خارج الحدود في جولة الحرارة', 'module' => 'temperature', 'icon' => 'thermo'],
         'field'     => ['label' => 'تفتيش ميداني جديد', 'hint' => 'عند إرسال المفوض لنتيجة الفحص من رابطه الشخصي', 'module' => 'inspection', 'icon' => 'search'],
         'daily'     => ['label' => 'مهام يومية لم تُنجز', 'hint' => 'قراءة حرارة أو مهمة يومية فات موعدها ولم تُسجل (تُرسل مرة واحدة لكل مهمة في اليوم)', 'module' => null, 'icon' => 'tasks'],
+        'maint'     => ['label' => 'انتهاء عقود الصيانة والأجهزة', 'hint' => 'عقد صيانة أو طفاية أو معايرة جهاز اقترب موعدها أو انتهى (قبل الموعد، ثم قبله بأسبوع، ثم كل أسبوع بعد الانتهاء)', 'module' => null, 'icon' => 'gear',
+            'roles' => ['pharmacist_manager', 'quality_manager', 'general_manager', 'ceo', 'managing_director']],
         'overdue'   => ['label' => 'ملخص الصباح (٨ ص)', 'hint' => 'يومياً: المتأخر وما ينتظر الشخص (انحرافات · قرارات · وثائق · تدريب)', 'module' => null, 'icon' => 'calendar'],
     ];
 
@@ -166,14 +168,15 @@ class Notifier
         $ids = NotifyRule::withoutGlobalScope('tenant')->where('tenant_id', $tenantId)->where('event', $event)->pluck('user_id');
         $all = self::users($tenantId);
 
-        return $ids->isNotEmpty() ? $all->whereIn('id', $ids)->values() : self::defaults($tenantId, $all);
+        return $ids->isNotEmpty() ? $all->whereIn('id', $ids)->values() : self::defaults($tenantId, $all, $event);
     }
 
-    /** الافتراضي: مدير الجودة والمدير الصيدلي · وإن لم يوجدا فمدير المخزن */
-    public static function defaults(int $tenantId, ?Collection $all = null): Collection
+    /** الافتراضي: مدير الجودة والمدير الصيدلي (أو أدوار الحدث) · وإن لم يوجدوا فمدير المخزن */
+    public static function defaults(int $tenantId, ?Collection $all = null, ?string $event = null): Collection
     {
         $all ??= self::users($tenantId);
-        $d = $all->filter(fn ($u) => $u->hasRole(...self::DEFAULT_ROLES))->values();
+        $roles = self::EVENTS[$event]['roles'] ?? self::DEFAULT_ROLES;
+        $d = $all->filter(fn ($u) => $u->hasRole(...$roles))->values();
 
         return $d->isNotEmpty() ? $d : $all->filter(fn ($u) => $u->isClientAdmin())->values();
     }

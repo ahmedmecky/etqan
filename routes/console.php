@@ -130,5 +130,37 @@ Artisan::command('etqan:daily-check {--dry : عرض المتأخر بدون إر
 
 Schedule::command('etqan:daily-check')->everyThirtyMinutes()->between('07:00', '23:30')->timezone('Africa/Cairo')->withoutOverlapping();
 
+/*
+|--------------------------------------------------------------------------
+| الصيانة والأجهزة: إشعار بعقود الصيانة والطفايات ومعايرة الأجهزة التي اقترب موعدها أو انتهى
+|   مرة عند دخول فترة التنبيه · ثم قبل الموعد بأسبوع · ثم يوم الانتهاء وكل ٧ أيام بعده
+|   للمستلمين في «انتهاء عقود الصيانة والأجهزة» (افتراضياً المدير الصيدلي ومدير الجودة والمدير العام)
+|--------------------------------------------------------------------------
+*/
+Artisan::command('etqan:maint-check {--dry : عرض ما سيُرسل بدون إرسال}', function () {
+    $sent = 0;
+    $day = now('Africa/Cairo')->format('Ymd');
+    foreach (Tenant::query()->where('is_active', true)->get() as $tenant) {
+        foreach (\App\Support\Maintenance::due($tenant->id) as $m) {
+            if ($this->option('dry')) {
+                $this->line("[{$tenant->code}] {$m['title']} · {$m['body']} ({$m['stage']})");
+                continue;
+            }
+            $isContract = $m['model'] instanceof \App\Models\MaintContract;
+            // نفس الوسم في نفس التشغيل = إشعار واحد مجمع لكل شخص
+            $tag = 'maint-' . ($isContract ? 'c' : 'a') . '-' . $day . '-' . (str_starts_with($m['stage'], 'expired') ? 'x' : 's');
+            Notifier::event($tenant->id, 'maint', $m['title'], $m['body'], $isContract ? $m['url'] : route('maint.index', ['tab' => 'assets', 'st' => str_starts_with($m['stage'], 'expired') ? 'expired' : 'soon']), $tag, $m['urgent']);
+            $m['model']->forceFill(['alert_stage' => $m['stage']])->save();
+            $sent++;
+        }
+        Notifier::flush();
+    }
+    $this->info($this->option('dry') ? 'Dry run finished.' : "Sent {$sent} maintenance alerts.");
+
+    return 0;
+})->purpose('Notify about maintenance contracts, fire extinguishers and calibrations that are due or expired');
+
+Schedule::command('etqan:maint-check')->dailyAt('08:30')->timezone('Africa/Cairo')->withoutOverlapping();
+
 // يومياً ٨ صباحاً بتوقيت القاهرة (عدا الجمعة) · يتطلب cron: * * * * * php artisan schedule:run
 Schedule::command('etqan:daily-alerts')->dailyAt('08:00')->timezone('Africa/Cairo')->days([0, 1, 2, 3, 4, 6])->withoutOverlapping();

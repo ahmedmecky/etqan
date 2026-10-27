@@ -32,7 +32,7 @@ class NotifyRuleController extends Controller
             return $e + [
                 'key'      => $key,
                 'chosen'   => $chosen,
-                'defaults' => $chosen ? [] : Notifier::defaults($tenantId)->map(fn ($u) => $u->displayName())->all(),
+                'defaults' => $chosen ? [] : Notifier::defaults($tenantId, null, $key)->map(fn ($u) => $u->displayName())->all(),
             ];
         })->values();
 

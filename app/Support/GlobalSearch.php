@@ -103,6 +103,7 @@ class GlobalSearch
             ['key' => 'records', 'title' => 'السجلات',              'items' => self::records($u, $q, $words)],
             ['key' => 'docs',    'title' => 'الإجراءات والوثائق',    'items' => self::docs($u, $words)],
             ['key' => 'forms',   'title' => 'نماذج الإجراءات',       'items' => self::sopForms($u, $words)],
+            ['key' => 'assets',  'title' => 'الأجهزة وعقود الصيانة', 'items' => self::maint($u, $words)],
             ['key' => 'users',   'title' => 'المستخدمون',           'items' => self::users($u, $words)],
         ];
         $groups = array_values(array_filter($groups, fn ($g) => $g['items']));
@@ -191,6 +192,37 @@ class GlobalSearch
         return $out;
     }
 
+    /** الأجهزة (بالرقم التسلسلي) وعقود الصيانة */
+    private static function maint(User $u, array $words): array
+    {
+        if (! Maintenance::canView($u)) {
+            return [];
+        }
+        $L = Maintenance::STATE_LABELS;
+        $out = [];
+        foreach (\App\Models\MaintContract::query()->where('is_active', true)->get() as $c) {
+            if (self::hit($c->company . ' ' . $c->kindLabel() . ' ' . $c->contract_no . ' عقد صيانه', $words)) {
+                $st = $c->state();
+                $out[] = ['title' => $c->company, 'code' => $c->contract_no ?? '', 'sub' => 'عقد ' . $c->kindLabel() . ' · ينتهي ' . $c->end_date->format('Y-m-d'),
+                    'badge' => $L[$st], 'state' => $st === 'ok' ? 'effective' : ($st === 'expired' ? 'obsolete' : 'pending'),
+                    'url' => route('maint.index', ['tab' => 'contracts', 'open' => $c->id])];
+            }
+        }
+        foreach (\App\Models\MaintAsset::query()->get() as $a) {
+            if (self::hit($a->serial . ' ' . $a->tag_no . ' ' . $a->name . ' ' . $a->categoryLabel() . ' ' . $a->location . ' ' . $a->brand . ' ' . $a->model, $words)) {
+                $st = $a->state();
+                $out[] = ['title' => $a->name, 'code' => $a->serial, 'sub' => $a->categoryLabel() . ($a->location ? ' · ' . $a->location : ''),
+                    'badge' => $a->due_date ? $L[$st] : '', 'state' => $st === 'ok' ? 'effective' : ($st === 'expired' ? 'obsolete' : 'pending'),
+                    'url' => route('maint.index', ['tab' => 'assets', 'q' => $a->serial])];
+            }
+            if (count($out) >= 10) {
+                break;
+            }
+        }
+
+        return $out;
+    }
+
     /** المستخدمون: لمدير المخزن والموارد البشرية (يفتح الوصف الوظيفي للموظف) */
     private static function users(User $u, array $words): array
     {
@@ -252,6 +284,9 @@ class GlobalSearch
             ['وصفي الوظيفي', 'الوصف الوظيفي الخاص بك', 'jobs.mine', [], 'وصف وظيفي JD', null, false],
             ['الهيكل الوظيفي', 'الوظائف والأوصاف الوظيفية للمخزن', 'jobs.index', [], 'هيكل وظيفي اوصاف JD', null, true],
             ['الإشعارات', 'صندوق الإشعارات والأجهزة', 'notifications.index', [], 'اشعارات تنبيهات جرس', null, false],
+            ['الصيانة والأجهزة', 'عقود الصيانة والطفايات والمعايرة وسجل الأجهزة', 'maint.index', [], 'صيانه اجهزه عقود طفايات حريق معايره ترمومتر كمبيوتر سيريال SH-023 SH-017', 'maint', false],
+            ['جرد الأجهزة', 'الجرد الفعلي للأجهزة بالموقع', 'maint.count', [], 'جرد اجهزه سيريال', 'maint', false],
+            ['عقود الصيانة', 'العقود وتواريخ انتهائها والتجديد', 'maint.index', ['tab' => 'contracts'], 'عقود صيانه انتهاء تجديد شركه', 'maint', false],
             ['المستخدمون', 'إضافة وتعديل المستخدمين', 'client.users.index', [], 'مستخدمين موظفين حسابات', null, true],
             ['الصلاحيات', 'الأدوار × الشاشات', 'client.permissions.index', [], 'صلاحيات ادوار', null, true],
             ['إعداد الإشعارات', 'مستلمو كل حدث', 'client.notify.index', [], 'اشعارات اعداد مستلمين', null, true],
@@ -272,7 +307,7 @@ class GlobalSearch
             if ($admin && ! ($route === 'jobs.index' ? $hr : $u->isClientAdmin())) {
                 continue;
             }
-            if ($module && ! Access::can($u, $module, 'view')) {
+            if ($module === 'maint' ? ! Maintenance::canView($u) : ($module && ! Access::can($u, $module, 'view'))) {
                 continue;
             }
             if (self::hit($title . ' ' . $desc . ' ' . $kw, $words)) {
