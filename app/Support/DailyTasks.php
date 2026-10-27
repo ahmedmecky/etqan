@@ -1,143 +1,178 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Support;
 
 use App\Models\DailyTask;
 use App\Models\DailyTaskLog;
-use App\Models\Role;
-use App\Support\DailyTasks;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
+use App\Models\TempPoint;
+use App\Models\TempReading;
+use App\Models\User;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\Rule;
-use Illuminate\View\View;
+use Illuminate\Support\Collection;
 
 /**
- * «مهام اليوم»: تنفيذ المهام اليومية · إعدادها (مدير المخزن ومدير الجودة)
+ * «مهام اليوم»: قائمة مهام يومية لكل مستخدم
+ *   - قراءات الحرارة (من جولات الحرارة في الإعدادات) لمن يسجلها
+ *   - المهام اليومية الثابتة التي يحددها مدير المخزن أو الجودة لأدوار معينة
+ * المهمة التي فات موعدها ولم تُنجز «متأخرة»، ويُرسل عنها إشعار (etqan:daily-check كل ٣٠ دقيقة).
  */
-class DailyTaskController extends Controller
+class DailyTasks
 {
     private const TZ = 'Africa/Cairo';
 
-    public function index(Request $request): View
+    /** يرون كل المهام ويتابعونها (وينفذون المهام التي لم يُحدد لها دور) */
+    public const MANAGER_ROLES = ['quality_manager', 'pharmacist_manager'];
+
+    /** مهام مقترحة من الإجراءات (يضيفها مدير المخزن بضغطة ثم يعدلها) */
+    public const SUGGESTIONS = [
+        ['title' => 'نظافة مناطق التخزين والاستلام اليومية وتسجيلها', 'sop' => 'SH-003', 'roles' => ['wholesale_storekeeper', 'retail_storekeeper', 'receiving_storekeeper'], 'due' => '11:00'],
+        ['title' => 'مراجعة منشورات هيئة الدواء عن الأدوية المغشوشة والمسحوبة', 'sop' => 'SH-011', 'roles' => ['pharmacist_manager'], 'due' => '12:00'],
+        ['title' => 'مراجعة منطقة الحجر والمرفوضات والمرتجعات وقرارها', 'sop' => 'SH-002', 'roles' => ['pharmacist_manager'], 'due' => '14:00'],
+        ['title' => 'التأكد من إغلاق أبواب الثلاجات وعمل الإنذار قبل نهاية اليوم', 'sop' => 'SH-030', 'roles' => ['receiving_storekeeper', 'wholesale_storekeeper', 'retail_storekeeper'], 'due' => '17:30'],
+        ['title' => 'مراجعة الطلبيات المتبقية وأصناف الثلاجة قبل خروج السيارات', 'sop' => 'SH-004', 'roles' => ['distribution_supervisor'], 'due' => '10:00'],
+        ['title' => 'جولة الأمن وإغلاق المخزن وتسجيلها', 'sop' => 'SH-029', 'roles' => ['security'], 'due' => '20:00'],
+    ];
+
+    public const DAYS = ['6' => 'السبت', '0' => 'الأحد', '1' => 'الاثنين', '2' => 'الثلاثاء', '3' => 'الأربعاء', '4' => 'الخميس', '5' => 'الجمعة'];
+
+    public static function isManager(User $u): bool
     {
-        $user = $request->user();
-        $today = Carbon::today(self::TZ);
-        $date = $today->copy();
-        if (DailyTasks::isManager($user) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('date'))) {
-            $d = Carbon::parse($request->query('date'), self::TZ)->startOfDay();
-            $date = $d->gt($today) ? $today : $d;
+        return $u->isClientAdmin() || $u->hasRole(...self::MANAGER_ROLES);
+    }
+
+    /** إعداد المهام: مدير المخزن ومدير الجودة */
+    public static function canSetup(User $u): bool
+    {
+        return $u->isClientAdmin() || $u->hasRole('quality_manager');
+    }
+
+    /** هل المستخدم مسؤول عن تنفيذ المهمة؟ */
+    public static function assigned(User $u, DailyTask $t): bool
+    {
+        $roles = $t->roles ?? [];
+
+        return $roles ? ($u->role && in_array($u->role->key, $roles, true)) : self::isManager($u);
+    }
+
+    public static function canDo(User $u, DailyTask $t): bool
+    {
+        return self::assigned($u, $t) || self::isManager($u);
+    }
+
+    /**
+     * قائمة اليوم للمستخدم
+     * ['items' => [[key, kind, title, sub, due, state(done|late|soon), url, task?, log?, mine]], 'done' => n, 'total' => n, 'late' => n]
+     */
+    public static function forUser(User $u, ?Carbon $date = null): array
+    {
+        $date ??= Carbon::today(self::TZ);
+        $now = Carbon::now(self::TZ);
+        $isToday = $date->isSameDay($now);
+        $time = $isToday ? $now->format('H:i') : '23:59';
+        $manager = self::isManager($u);
+        $items = [];
+
+        // قراءات الحرارة
+        if ($date->dayOfWeek !== Carbon::FRIDAY && ($manager || Access::can($u, 'temperature', 'use'))) {
+            $points = TempPoint::query()->where('is_active', true)->count();
+            if ($points) {
+                $done = TempReading::query()->whereDate('date', $date->toDateString())->get(['shift'])->groupBy('shift')->map->count();
+                $late = $isToday ? Carbon::now(self::TZ)->subHours(TempRounds::GRACE_HOURS)->format('H:i') : '23:59';
+                foreach (TempRounds::times($u->tenant_id) as $k => $tm) {
+                    $n = (int) ($done[$k] ?? 0);
+                    $items[] = [
+                        'key' => 'temp-' . $k, 'kind' => 'temp', 'title' => 'قراءة الحرارة ' . TempRounds::label((string) $k, $u->tenant_id, false),
+                        'sub' => $n >= $points ? 'كل النقاط ✓' : "{$n} من {$points} نقطة", 'due' => $tm,
+                        'state' => $n >= $points ? 'done' : ($tm <= $late ? 'late' : 'soon'),
+                        'url' => route('temperature.round', ['date' => $date->toDateString(), 'shift' => $k]), 'mine' => true, 'sop' => 'SH-030',
+                    ];
+                }
+            }
         }
 
-        return view('daily.index', [
-            'list'     => DailyTasks::forUser($user, $date),
-            'date'     => $date,
-            'isToday'  => $date->isSameDay($today),
-            'manager'  => DailyTasks::isManager($user),
-            'setup'    => DailyTasks::canSetup($user),
-            'tasks'    => DailyTasks::canSetup($user) ? DailyTask::query()->orderBy('due_time')->orderBy('sort')->get() : collect(),
-            'roles'    => Role::query()->assignableByClient()->get(['key', 'name_ar']),
-            'days'     => DailyTasks::DAYS,
-            'suggest'  => DailyTasks::SUGGESTIONS,
-        ]);
-    }
-
-    /** تم تنفيذ المهمة اليوم */
-    public function done(Request $request, DailyTask $task): RedirectResponse
-    {
-        $user = $request->user();
-        abort_unless(DailyTasks::canDo($user, $task), 403, 'هذه المهمة ليست من مهامك.');
-        $data = $request->validate(['note' => ['nullable', 'string', 'max:500']]);
-        $today = Carbon::today(self::TZ)->toDateString();
-
-        DailyTaskLog::query()->updateOrCreate(
-            ['task_id' => $task->id, 'date' => $today],
-            ['tenant_id' => $user->tenant_id, 'done_by' => $user->id, 'done_at' => now(), 'note' => $data['note'] ?? null]
-        );
-
-        return back()->with('status', "✓ تم: {$task->title}");
-    }
-
-    /** إلغاء التنفيذ (في نفس اليوم: من نفذها أو المدير) */
-    public function undo(Request $request, DailyTask $task): RedirectResponse
-    {
-        $user = $request->user();
-        $log = DailyTaskLog::query()->where('task_id', $task->id)->whereDate('date', Carbon::today(self::TZ)->toDateString())->first();
-        if ($log) {
-            abort_unless((int) $log->done_by === (int) $user->id || DailyTasks::isManager($user), 403);
-            $log->delete();
-        }
-
-        return back()->with('status', "أُلغي تنفيذ «{$task->title}».");
-    }
-
-    /* ===================== الإعداد ===================== */
-
-    public function store(Request $request): RedirectResponse
-    {
-        abort_unless(DailyTasks::canSetup($request->user()), 403);
-        DailyTask::create($this->validated($request) + ['tenant_id' => $request->user()->tenant_id, 'updated_by' => $request->user()->id]);
-
-        return back()->with('status', 'تمت إضافة المهمة اليومية.');
-    }
-
-    public function update(Request $request, DailyTask $task): RedirectResponse
-    {
-        abort_unless(DailyTasks::canSetup($request->user()), 403);
-        $task->update($this->validated($request) + ['updated_by' => $request->user()->id]);
-
-        return back()->with('status', "تم حفظ «{$task->title}».");
-    }
-
-    public function toggle(Request $request, DailyTask $task): RedirectResponse
-    {
-        abort_unless(DailyTasks::canSetup($request->user()), 403);
-        $task->update(['is_active' => ! $task->is_active, 'updated_by' => $request->user()->id]);
-
-        return back()->with('status', $task->is_active ? "أُعيد تفعيل «{$task->title}»." : "أُوقفت «{$task->title}».");
-    }
-
-    /** إضافة المهام المقترحة من الإجراءات (ما لم يُضف منها) */
-    public function seed(Request $request): RedirectResponse
-    {
-        abort_unless(DailyTasks::canSetup($request->user()), 403);
-        $have = DailyTask::query()->pluck('title')->all();
-        $n = 0;
-        foreach (DailyTasks::SUGGESTIONS as $i => $s) {
-            if (in_array($s['title'], $have, true)) {
+        // المهام الثابتة
+        $logs = DailyTaskLog::query()->with('doer')->whereDate('date', $date->toDateString())->get()->keyBy('task_id');
+        foreach (self::tasksOn($date) as $t) {
+            $mine = self::assigned($u, $t);
+            if (! $mine && ! $manager) {
                 continue;
             }
-            DailyTask::create(['tenant_id' => $request->user()->tenant_id, 'title' => $s['title'], 'sop' => $s['sop'], 'roles' => $s['roles'],
-                'due_time' => $s['due'], 'days' => '012346', 'sort' => $i + 1, 'updated_by' => $request->user()->id]);
-            $n++;
+            $log = $logs->get($t->id);
+            $items[] = [
+                'key' => 'task-' . $t->id, 'kind' => 'task', 'title' => $t->title,
+                'sub' => $log ? '✓ ' . ($log->doer?->displayName() ?? '') . ' ' . $log->done_at?->timezone(self::TZ)->format('H:i') . ($log->note ? ' · ' . $log->note : '') : self::rolesText($t),
+                'due' => $t->due(), 'state' => $log ? 'done' : ($t->due() <= $time ? 'late' : 'soon'),
+                'url' => route('daily.index'), 'task' => $t, 'log' => $log, 'mine' => $mine || self::canDo($u, $t), 'sop' => $t->sop,
+            ];
         }
 
-        return back()->with('status', $n ? "تمت إضافة {$n} مهمة مقترحة. عدّل الأوقات والمسؤولين حسب مخزنك." : 'المهام المقترحة موجودة بالفعل.');
+        usort($items, fn ($a, $b) => [$a['state'] === 'done' ? 1 : 0, $a['due']] <=> [$b['state'] === 'done' ? 1 : 0, $b['due']]);
+        $c = collect($items);
+
+        return ['items' => $items, 'done' => $c->where('state', 'done')->count(), 'total' => $c->count(), 'late' => $c->where('state', 'late')->count()];
     }
 
-    private function validated(Request $request): array
+    /** المهام الفعالة في هذا اليوم */
+    public static function tasksOn(Carbon $date): Collection
     {
-        $keys = Role::query()->assignableByClient()->pluck('key')->all();
-        $data = $request->validate([
-            'title'    => ['required', 'string', 'max:160'],
-            'sop'      => ['nullable', 'string', 'max:20', 'regex:/^[A-Za-z0-9\-]+$/'],
-            'due_time' => ['required', 'date_format:H:i'],
-            'roles'    => ['nullable', 'array'],
-            'roles.*'  => [Rule::in($keys)],
-            'days'     => ['required', 'array', 'min:1'],
-            'days.*'   => [Rule::in(['0', '1', '2', '3', '4', '5', '6'])],
-            'sort'     => ['nullable', 'integer', 'between:0,999'],
-        ], [
-            'title.required'    => 'اكتب المهمة.',
-            'due_time.required' => 'حدد موعد الإنجاز.',
-            'days.required'     => 'اختر يوماً واحداً على الأقل.',
-            'sop.regex'         => 'كود الإجراء حروف إنجليزية وأرقام فقط (مثل SH-003).',
-        ]);
+        return DailyTask::query()->where('is_active', true)->orderBy('due_time')->orderBy('sort')->get()
+            ->filter(fn ($t) => $t->runsOn($date->dayOfWeek))->values();
+    }
 
-        return [
-            'title' => trim($data['title']), 'sop' => isset($data['sop']) ? strtoupper(trim($data['sop'])) : null,
-            'due_time' => $data['due_time'], 'roles' => array_values($data['roles'] ?? []),
-            'days' => implode('', array_unique($data['days'])), 'sort' => (int) ($data['sort'] ?? 0),
-        ];
+    public static function rolesText(DailyTask $t): string
+    {
+        $roles = $t->roles ?? [];
+        if (! $roles) {
+            return 'مدير الجودة · المدير الصيدلي';
+        }
+        $names = \App\Models\Role::query()->whereIn('key', $roles)->pluck('name_ar')->all();
+
+        return implode(' · ', $names);
+    }
+
+    /**
+     * المتأخر اليوم لمخزن (للإشعارات): [['tag', 'title', 'body', 'url', 'users' => Collection]]
+     */
+    public static function missing(int $tenantId): array
+    {
+        $now = Carbon::now(self::TZ);
+        $date = $now->copy()->startOfDay();
+        $users = Notifier::users($tenantId);
+        $out = [];
+
+        if ($date->dayOfWeek !== Carbon::FRIDAY) {
+            $points = TempPoint::withoutGlobalScope('tenant')->where('tenant_id', $tenantId)->where('is_active', true)->count();
+            if ($points) {
+                $done = TempReading::withoutGlobalScope('tenant')->where('tenant_id', $tenantId)->whereDate('date', $date->toDateString())
+                    ->get(['shift'])->groupBy('shift')->map->count();
+                foreach (TempRounds::dueOn($date, $tenantId) as $k) {
+                    $n = (int) ($done[$k] ?? 0);
+                    if ($n < $points) {
+                        $out[] = [
+                            'tag'   => 'miss-temp-' . $date->format('Ymd') . '-' . $k,
+                            'title' => 'لم تُسجل ' . TempRounds::label($k, $tenantId),
+                            'body'  => "قراءة الحرارة: سُجلت {$n} من {$points} نقطة",
+                            'url'   => route('temperature.round', ['shift' => $k]),
+                            'users' => $users->filter(fn ($u) => ! self::isManager($u) && Access::can($u, 'temperature', 'use'))->values(),
+                        ];
+                    }
+                }
+            }
+        }
+
+        $logs = DailyTaskLog::withoutGlobalScope('tenant')->where('tenant_id', $tenantId)->whereDate('date', $date->toDateString())->pluck('task_id')->flip();
+        $tasks = DailyTask::withoutGlobalScope('tenant')->where('tenant_id', $tenantId)->where('is_active', true)->get()
+            ->filter(fn ($t) => $t->runsOn($date->dayOfWeek) && $t->due() <= $now->format('H:i') && ! $logs->has($t->id));
+        foreach ($tasks as $t) {
+            $out[] = [
+                'tag'   => 'miss-task-' . $date->format('Ymd') . '-' . $t->id,
+                'title' => 'مهمة يومية متأخرة',
+                'body'  => $t->title . ' · الموعد ' . $t->due() . ($t->sop ? ' · ' . $t->sop : ''),
+                'url'   => route('daily.index'),
+                'users' => $users->filter(fn ($u) => ($t->roles ?? []) && $u->role && in_array($u->role->key, $t->roles, true))->values(),
+            ];
+        }
+
+        return $out;
     }
 }
