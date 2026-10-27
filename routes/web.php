@@ -22,6 +22,7 @@ use App\Http\Controllers\FieldInspectionController;
 use App\Http\Controllers\QmsMapController;
 use App\Http\Controllers\FlowChartController;
 use App\Http\Controllers\DailyTaskController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\Client\PermissionController;
 use App\Http\Controllers\Client\NotifyRuleController;
@@ -238,6 +239,10 @@ Route::middleware(['auth', 'active'])->group(function () {
         // خريطة نظام الجودة ومصفوفة المسؤوليات
         Route::get('/qms-map', QmsMapController::class)->name('qms.map');
         Route::get('/qms-flows', FlowChartController::class)->name('qms.flows');
+
+        // البحث العام · دليل الوثائق (SOP · KPI · JD)
+        Route::get('/search', [SearchController::class, 'index'])->middleware('throttle:120,1')->name('search');
+        Route::get('/library', [SearchController::class, 'library'])->name('library');
 
         // مهام اليوم: التنفيذ · الإعداد (مدير المخزن ومدير الجودة)
         Route::get('/daily', [DailyTaskController::class, 'index'])->name('daily.index');

@@ -94,6 +94,24 @@
     .tb-org b{max-width:150px} .tb-org span,.tb-user .nm,header.top .brand .bt{display:none} .tb-nav{margin-inline-start:6px} .tb-nav a span{display:none}
   }
   @media (max-width:560px){ header.top{gap:10px;padding:0 12px !important} .tb-div,header.top .brand{display:none !important} .tb-user .menu{position:fixed;left:8px;top:60px} .nb-panel{position:fixed;left:8px;right:8px;top:60px;width:auto} .tb-bell summary{width:38px;height:38px} .tb-org .lg{width:38px;height:38px} .tb-org b{font-size:14px;max-width:120px} }
+  /* دليل الوثائق (زر المعلومات): الإجراءات · المؤشرات · الأوصاف الوظيفية */
+  .lb-panel{position:absolute;top:calc(100% + 6px);left:0;width:400px;max-width:calc(100vw - 16px);background:#fff;color:#1c2826;border:1px solid #dde3e1;border-radius:12px;
+    box-shadow:0 12px 32px rgba(0,0,0,.16);z-index:55;overflow:hidden}
+  .lb-tabs{display:flex;border-bottom:1px solid #eef0f0}
+  .lb-tabs button{flex:1;background:none;border:0;border-bottom:3px solid transparent;padding:10px 6px;font:inherit;font-size:13.5px;font-weight:700;color:#5f6f6c;cursor:pointer}
+  .lb-tabs button.on{color:#0f5e5a;border-bottom-color:#0f5e5a}
+  .lb-tabs small{display:block;font-size:11px;font-weight:600;color:#8a9895}
+  .lb-q{padding:8px 10px;border-bottom:1px solid #eef0f0}
+  .lb-q input{width:100%;padding:8px 10px;border:1px solid #dde3e1;border-radius:8px;font:inherit;font-size:13.5px}
+  .lb-list{max-height:min(430px,58vh);overflow-y:auto}
+  .lb-list a{display:flex;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid #f1f3f3;color:#1c2826 !important;text-decoration:none;font-size:13.5px}
+  .lb-list a:hover{background:#f5f9f8}
+  .lb-list .c{direction:ltr;font-weight:700;color:#0f5e5a;min-width:86px;font-size:12.5px;white-space:nowrap}
+  .lb-list .t{flex:1;min-width:0;line-height:1.5}
+  .lb-list .s{font-size:11px;border-radius:99px;padding:2px 8px;white-space:nowrap;background:#f1f3f3;color:#5f6f6c}
+  .lb-list .s.effective{background:#e5f4ea;color:#1e7a3c} .lb-list .s.pending{background:#fdf3dc;color:#8a5a00} .lb-list .s.obsolete{background:#fbe9e7;color:#b3261e}
+  .lb-foot{display:block;text-align:center;padding:9px;font-size:13px;font-weight:700;color:#0f5e5a !important;text-decoration:none;border-top:1px solid #eef0f0}
+  @media (max-width:560px){ .lb-panel{position:fixed;left:8px;right:8px;top:60px;width:auto} }
   @media print{ header.top{display:none !important} }
 </style>
 <script>
@@ -171,6 +189,22 @@
   <span class="tb-sp"></span>
 
   @if ($me && $me->tenant_id)
+    <details class="tb-bell" id="lbBox">
+      <summary title="دليل الوثائق: الإجراءات والمؤشرات والأوصاف الوظيفية" aria-label="دليل الوثائق">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/></svg>
+      </summary>
+      <div class="lb-panel">
+        <div class="lb-tabs" id="lbTabs">
+          <button type="button" class="on" data-t="sop">الإجراءات<small>SOP</small></button>
+          <button type="button" data-t="kpi">مؤشرات الأداء<small>KPI</small></button>
+          <button type="button" data-t="jd">الأوصاف الوظيفية<small>JD</small></button>
+        </div>
+        <div class="lb-q"><input type="search" id="lbQ" placeholder="ابحث بالكود أو الاسم… (مثال: SH-003، نظافة)" autocomplete="off"></div>
+        <div class="lb-list" id="lbList"><div class="nb-empty">جارٍ التحميل…</div></div>
+        <a class="lb-foot" href="{{ route('documents.index') }}">سجل الوثائق</a>
+      </div>
+    </details>
+
     <details class="tb-bell" id="nbBell">
       <summary title="الإشعارات" aria-label="الإشعارات">{!! \App\Support\Icon::svg('bell', 22) !!}<span class="nb-n" id="nbN" hidden>0</span></summary>
       <div class="nb-panel">
@@ -242,6 +276,49 @@
   // إغلاق قائمة المستخدم والجرس عند الضغط خارجهما
   document.addEventListener('click', e => { document.querySelectorAll('.tb-user, .tb-bell').forEach(d => { if (d.open && !d.contains(e.target)) d.open = false; }); });
 </script>
+@if ($me && $me->tenant_id)
+<script>
+  /* دليل الوثائق: يُحمّل مرة واحدة عند أول فتح */
+  (function () {
+    const box = document.getElementById('lbBox');
+    if (!box) return;
+    const URL = @json(route('library'));
+    const list = document.getElementById('lbList'), q = document.getElementById('lbQ');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const norm = s => String(s || '').toLowerCase().replace(/[\u064B-\u065F\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+    let data = null, tab = 'sop', loading = false;
+    function draw() {
+      if (!data) return;
+      const w = norm(q.value.trim()).split(/\s+/).filter(Boolean);
+      const rows = (data[tab] || []).filter(d => w.every(x => norm(d.code + ' ' + d.title).includes(x)));
+      list.innerHTML = rows.length ? rows.map(d => `<a href="${esc(d.url)}"><span class="c">${esc(d.code)}</span><span class="t">${esc(d.title)}</span><span class="s ${esc(d.state)}">${esc(d.stateLabel)}</span></a>`).join('')
+        : '<div class="nb-empty">لا توجد نتائج.</div>';
+      document.querySelectorAll('#lbTabs button').forEach(b => {
+        const n = (data[b.dataset.t] || []).length;
+        b.querySelector('small').textContent = { sop: 'SOP', kpi: 'KPI', jd: 'JD' }[b.dataset.t] + ' · ' + n;
+      });
+    }
+    box.addEventListener('toggle', () => {
+      if (!box.open) return;
+      setTimeout(() => q.focus({ preventScroll: true }), 30);
+      if (data || loading) return;
+      loading = true;
+      fetch(URL, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(j => { data = j; draw(); })
+        .catch(() => { list.innerHTML = '<div class="nb-empty">تعذر التحميل. أعد المحاولة.</div>'; })
+        .finally(() => { loading = false; });
+    });
+    document.getElementById('lbTabs').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      tab = b.dataset.t;
+      document.querySelectorAll('#lbTabs button').forEach(x => x.classList.toggle('on', x === b));
+      draw();
+    });
+    q.addEventListener('input', draw);
+  })();
+</script>
+@endif
 @if ($me && $me->tenant_id)
   @php
     $pushBoot = [

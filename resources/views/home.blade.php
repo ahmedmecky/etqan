@@ -69,6 +69,20 @@
   .cd.soon .chip{filter:grayscale(1);opacity:.6}
   .cd.soon .tp b,.cd.soon .ds{color:#98a5a2}
   .cd .badge-soon{font-size:11.5px;font-weight:700;color:#8a6d1e;background:#f8efdc;border-radius:99px;padding:2px 10px}
+  .gs{background:#fff;border:1px solid var(--ln);border-radius:14px;padding:6px 0;margin:0 0 16px;box-shadow:0 4px 14px rgba(15,94,90,.06)}
+  .gs[hidden]{display:none}
+  .gs h3{font-size:12.5px;color:var(--mut);margin:8px 16px 4px;font-weight:700}
+  .gs a{display:flex;align-items:center;gap:10px;padding:8px 16px;color:inherit;text-decoration:none;border-top:1px solid #f1f3f3}
+  .gs h3 + a{border-top:0}
+  .gs a:hover{background:#f5f9f8}
+  .gs .c{direction:ltr;font-weight:700;color:var(--brand,#0f5e5a);font-size:12.5px;white-space:nowrap;min-width:84px}
+  .gs .t{flex:1;min-width:0}
+  .gs .t b{display:block;font-size:14px;line-height:1.5}
+  .gs .t small{display:block;font-size:12px;color:var(--mut)}
+  .gs .s{font-size:11px;border-radius:99px;padding:2px 8px;background:#f1f3f3;color:#5f6f6c;white-space:nowrap}
+  .gs .s.effective{background:#e5f4ea;color:#1e7a3c} .gs .s.pending{background:#fdf3dc;color:#8a5a00} .gs .s.obsolete{background:#fbe9e7;color:#b3261e}
+  .gs .all{justify-content:center;font-size:13px;font-weight:700;color:var(--brand,#0f5e5a)}
+  .gs .none{padding:12px 16px;color:var(--mut);font-size:13px}
   .empty-filter{display:none;text-align:center;color:var(--mut);padding:30px;background:#fff;border:1px dashed var(--ln);border-radius:14px}
 
   /* الجانب */
@@ -205,9 +219,11 @@
         </select>
         <label class="q">
           {!! $I('search', 20) !!}
-          <input type="search" id="q" placeholder="ابحث عن إجراء أو نموذج أو تقرير… (مثال: حرارة، SH-008)" autocomplete="off">
+          <input type="search" id="q" placeholder="ابحث في النظام: إجراء، نموذج، رقم سجل، شاشة، موظف… (مثال: نظافة، SH-003، RCV-2026)" autocomplete="off" enterkeyhint="search">
         </label>
       </div>
+
+      <div class="gs" id="gsBox" hidden></div>
 
       @foreach ($D['sections'] as $s)
         <section class="sec" data-sec="{{ $s['key'] }}">
@@ -264,6 +280,33 @@
     document.getElementById('noRes').style.display = any ? 'none' : 'block';
   }
   q.addEventListener('input', apply); sf.addEventListener('change', apply);
+
+  /* البحث العام في النظام (الشاشات · السجلات · الوثائق · النماذج · المستخدمون) */
+  const URL = @json(route('search'));
+  const box = document.getElementById('gsBox');
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let timer = null, seq = 0;
+  function render(res) {
+    if (!res.total) { box.innerHTML = '<div class="none">لا توجد نتائج في النظام لـ «' + esc(res.q) + '».</div>'; box.hidden = false; return; }
+    box.innerHTML = res.groups.map(g => '<h3>' + esc(g.title) + ' (' + g.items.length + ')</h3>' + g.items.map(i =>
+      `<a href="${esc(i.url)}">${i.code ? `<span class="c">${esc(i.code)}</span>` : ''}<span class="t"><b>${esc(i.title)}</b>${i.sub ? `<small>${esc(i.sub)}</small>` : ''}</span>${i.badge ? `<span class="s ${esc(i.state || '')}">${esc(i.badge)}</span>` : ''}</a>`
+    ).join('')).join('') + `<a class="all" href="${URL}?q=${encodeURIComponent(res.q)}">عرض كل النتائج</a>`;
+    box.hidden = false;
+    document.getElementById('noRes').style.display = 'none';
+  }
+  q.addEventListener('input', () => {
+    clearTimeout(timer);
+    const t = q.value.trim();
+    if (t.length < 2) { box.hidden = true; box.innerHTML = ''; return; }
+    timer = setTimeout(() => {
+      const my = ++seq;
+      fetch(URL + '?q=' + encodeURIComponent(t), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(res => { if (my === seq && q.value.trim() === t) render(res); })
+        .catch(() => {});
+    }, 250);
+  });
+  q.addEventListener('keydown', e => { if (e.key === 'Enter' && q.value.trim().length >= 2) location.href = URL + '?q=' + encodeURIComponent(q.value.trim()); });
 })();
 </script>
 @endpush
