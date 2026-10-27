@@ -20,6 +20,8 @@ use App\Http\Controllers\Portal\ComplaintPortalController;
 use App\Http\Controllers\Portal\FieldInspectionPortalController;
 use App\Http\Controllers\FieldInspectionController;
 use App\Http\Controllers\QmsMapController;
+use App\Http\Controllers\FlowChartController;
+use App\Http\Controllers\DailyTaskController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\Client\PermissionController;
 use App\Http\Controllers\Client\NotifyRuleController;
@@ -235,6 +237,16 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         // خريطة نظام الجودة ومصفوفة المسؤوليات
         Route::get('/qms-map', QmsMapController::class)->name('qms.map');
+        Route::get('/qms-flows', FlowChartController::class)->name('qms.flows');
+
+        // مهام اليوم: التنفيذ · الإعداد (مدير المخزن ومدير الجودة)
+        Route::get('/daily', [DailyTaskController::class, 'index'])->name('daily.index');
+        Route::post('/daily/tasks', [DailyTaskController::class, 'store'])->name('daily.tasks.store');
+        Route::post('/daily/tasks/seed', [DailyTaskController::class, 'seed'])->name('daily.tasks.seed');
+        Route::put('/daily/tasks/{task}', [DailyTaskController::class, 'update'])->whereNumber('task')->name('daily.tasks.update');
+        Route::post('/daily/tasks/{task}/toggle', [DailyTaskController::class, 'toggle'])->whereNumber('task')->name('daily.tasks.toggle');
+        Route::post('/daily/{task}/done', [DailyTaskController::class, 'done'])->whereNumber('task')->name('daily.done');
+        Route::delete('/daily/{task}/done', [DailyTaskController::class, 'undo'])->whereNumber('task')->name('daily.undo');
 
         // التفتيش الميداني بالتفويض: السجل · المراجعة · المفوضون (SH-012-F04)
         Route::get('/inspections/field', [FieldInspectionController::class, 'index'])->name('field.index');

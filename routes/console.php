@@ -98,5 +98,37 @@ Artisan::command('etqan:daily-alerts {--dry : عرض الملخص بدون إر�
     return 0;
 })->purpose('Send the morning summary of overdue and waiting items');
 
+/*
+|--------------------------------------------------------------------------
+| مهام اليوم: إشعار بكل قراءة حرارة أو مهمة يومية فات موعدها ولم تُسجل (مرة واحدة لكل مهمة في اليوم)
+|   للمسؤولين عن التنفيذ + مستلمي «مهام يومية لم تُنجز» (افتراضياً مدير الجودة والمدير الصيدلي)
+|--------------------------------------------------------------------------
+*/
+Artisan::command('etqan:daily-check {--dry : عرض المتأخر بدون إرسال}', function () {
+    $sent = 0;
+    foreach (Tenant::query()->where('is_active', true)->get() as $tenant) {
+        foreach (\App\Support\DailyTasks::missing($tenant->id) as $m) {
+            $already = \App\Models\AppNotification::withoutGlobalScope('tenant')->where('tenant_id', $tenant->id)->where('tag', $m['tag'])->exists();
+            if ($already) {
+                continue;
+            }
+            if ($this->option('dry')) {
+                $this->line("[{$tenant->code}] {$m['title']} · {$m['body']} → " . $m['users']->map->displayName()->implode('، '));
+                continue;
+            }
+            Notifier::toUsers($m['users'], $tenant->id, 'daily', null, $m['title'], $m['body'], $m['url'], $m['tag'], true);
+            Notifier::event($tenant->id, 'daily', $m['title'], $m['body'], $m['url'], $m['tag'], true);
+            $sent++;
+        }
+        Notifier::flush();
+        \App\Support\TempRounds::forget();
+    }
+    $this->info($this->option('dry') ? 'Dry run finished.' : "Sent {$sent} missing-task alerts.");
+
+    return 0;
+})->purpose('Notify about daily tasks and temperature readings that are past due');
+
+Schedule::command('etqan:daily-check')->everyThirtyMinutes()->between('07:00', '23:30')->timezone('Africa/Cairo')->withoutOverlapping();
+
 // يومياً ٨ صباحاً بتوقيت القاهرة (عدا الجمعة) · يتطلب cron: * * * * * php artisan schedule:run
 Schedule::command('etqan:daily-alerts')->dailyAt('08:00')->timezone('Africa/Cairo')->days([0, 1, 2, 3, 4, 6])->withoutOverlapping();

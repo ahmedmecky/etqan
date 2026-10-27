@@ -85,6 +85,14 @@
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1c2826;color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;z-index:50;max-width:90vw;text-align:center}
   .toast.bad{background:var(--bad)}
   @media (max-width:600px){ main.wrap{padding:10px !important} }
+  .more{display:flex;align-items:center;gap:8px;width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 14px;font:inherit;font-size:14.5px;font-weight:700;color:var(--muted);cursor:pointer;margin-bottom:12px;text-align:start}
+  .more .ar{margin-inline-start:auto;transition:transform .15s;font-size:13px}
+  .more.open .ar{transform:rotate(180deg)}
+  .more.has{color:var(--brand);border-color:#b9d8d3;background:#f3f9f8}
+  .more .dot{width:8px;height:8px;border-radius:50%;background:var(--brand);display:none}
+  .more.has .dot{display:inline-block}
+  .moreBox{margin:-6px 0 12px}
+  .moreBox .meta{background:#fafbfb;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:13.5px;line-height:1.8}
   .sevtag{border-radius:12px;padding:10px 12px;margin-bottom:12px;background:#eef0f0;font-size:15px}
   .sevtag small{display:block;font-size:13px;color:var(--muted);margin-top:2px}
   .sevtag.critical{background:var(--bad-soft);color:var(--bad)} .sevtag.major{background:var(--warn-soft);color:var(--warn)}
@@ -137,7 +145,6 @@
       <div class="sec" id="qSec"></div>
       <div class="lbl">تحقق من:</div>
       <div class="qtext" id="qText"></div>
-      <div class="meta" id="qMeta"></div>
     </div>
 
     <div class="answers">
@@ -150,10 +157,16 @@
     </div>
 
     <div class="sevtag" id="sevTag" hidden></div>
-    <div class="evbox" id="evBox" hidden>
-      <div class="lbl2" id="evLbl">ماذا رأيت؟</div>
-      <div class="quick" id="quick"></div>
-      <textarea id="ev" placeholder="اكتب باختصار: ماذا رأيت وأين (رقم سجل، صنف، مكان)…"></textarea>
+
+    <!-- الملاحظة ومرجع البند: مخفية تحت السهم -->
+    <button type="button" class="more" id="moreBtn" aria-expanded="false"><span class="dot"></span><span id="moreLbl">ملاحظة · مرجع البند</span><span class="ar">▾</span></button>
+    <div class="moreBox" id="moreBox" hidden>
+      <div class="meta" id="qMeta"></div>
+      <div class="evbox" id="evBox">
+        <div class="lbl2" id="evLbl">ملاحظة (اختياري)</div>
+        <div class="quick" id="quick"></div>
+        <textarea id="ev" placeholder="اكتب باختصار: ماذا رأيت وأين (رقم سجل، صنف، مكان)…"></textarea>
+      </div>
     </div>
 
     <div class="nav">
@@ -339,23 +352,34 @@ function renderQ() {
   $('#bar').style.width = Math.round(answered / n * 100) + '%';
   $('#qSec').textContent = it.sec;
   $('#qText').textContent = it.q;
-  $('#qMeta').textContent = [it.who ? 'المسؤول: ' + it.who : '', it.ref ? 'السجل: ' + it.ref : ''].filter(Boolean).join(' · ');
+  const meta = [it.ref ? 'المرجع: ' + it.ref : '', it.who ? 'المسؤول: ' + it.who : ''].filter(Boolean);
+  $('#qMeta').textContent = meta.join(' · ');
+  $('#qMeta').hidden = !meta.length;
   document.querySelectorAll('[data-res]').forEach(b => b.classList.toggle('on', b.dataset.res === it.res));
   $('#sevTag').hidden = it.res !== 'nc';
   $('#sevTag').className = 'sevtag ' + (it.cls || '');
   $('#sevTag').innerHTML = it.cls ? `التصنيف: <b>${CLS[it.cls]}</b><small>${CLS_HINT[it.cls]}</small>` : '';
-  $('#evBox').hidden = !(it.res === 'nc' || it.res === 'opp');
-  $('#evLbl').textContent = it.res === 'opp' ? 'ما اقتراحك؟' : 'ماذا رأيت؟';
-  $('#quick').innerHTML = (it.res === 'opp' ? QUICK_OPP : QUICK_NC).map(t => `<button type="button" data-quick="${esc(t)}">${esc(t)}</button>`).join('');
+  $('#evLbl').textContent = it.res === 'opp' ? 'ما اقتراحك؟ (اختياري)' : it.res === 'nc' ? 'ماذا رأيت؟ (اختياري)' : 'ملاحظة (اختياري)';
+  $('#quick').innerHTML = (it.res === 'opp' ? QUICK_OPP : it.res === 'nc' ? QUICK_NC : []).map(t => `<button type="button" data-quick="${esc(t)}">${esc(t)}</button>`).join('');
+  $('#quick').hidden = !(it.res === 'nc' || it.res === 'opp');
   $('#ev').value = it.ev;
+  setMore(false);
   $('#btnPrev').disabled = pos === 0;
   $('#btnNext').textContent = pos === n - 1 ? 'إنهاء ←' : 'التالي ←';
 }
 
 function checkCurrent() {
-  const it = C.items[pos];
-  if ((it.res === 'nc' || it.res === 'opp') && !it.ev.trim()) return it.res === 'nc' ? 'اكتب ماذا رأيت' : 'اكتب اقتراحك';
-  return null;
+  return null;   // الملاحظة اختيارية (مخفية تحت السهم)
+}
+
+/* فتح وغلق «ملاحظة · مرجع البند» */
+function setMore(open) {
+  const it = C && C.items[pos];
+  $('#moreBox').hidden = !open;
+  $('#moreBtn').classList.toggle('open', open);
+  $('#moreBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+  $('#moreBtn').classList.toggle('has', !!(it && it.ev && it.ev.trim()));
+  $('#moreLbl').textContent = it && it.ev && it.ev.trim() ? 'ملاحظة مكتوبة · مرجع البند' : 'ملاحظة · مرجع البند';
 }
 
 function go(step) {
@@ -417,21 +441,21 @@ document.addEventListener('click', async e => {
     it.cls = it.res === 'nc' ? (it.cls0 || 'major') : '';   // التصنيف ثابت لكل بند
     renderQ();
     if (it.res === 'ok' || it.res === 'na') setTimeout(() => go(1), 250);   // انتقال تلقائي
-    else $('#ev').focus({ preventScroll: true });
     return;
   }
   const q = t.closest('[data-quick]');
   if (q && C) {
     const it = C.items[pos];
     it.ev = it.ev.trim() ? it.ev.trim() + '، ' + q.dataset.quick : q.dataset.quick;
-    $('#ev').value = it.ev; $('#ev').focus();
+    $('#ev').value = it.ev; $('#ev').focus(); setMore(true);
     return;
   }
   const j = t.closest('[data-jump]');
   if (j) { pos = +j.dataset.jump; show('sAsk'); renderQ(); return; }
 });
 
-$('#ev').addEventListener('input', e => { C.items[pos].ev = e.target.value; });
+$('#ev').addEventListener('input', e => { C.items[pos].ev = e.target.value; $('#moreBtn').classList.toggle('has', !!e.target.value.trim()); });
+$('#moreBtn').addEventListener('click', () => { const open = $('#moreBox').hidden; setMore(open); if (open) $('#ev').focus({ preventScroll: true }); });
 $('#positives').addEventListener('input', e => { C.positives = e.target.value; });
 $('#btnNext').addEventListener('click', () => go(1));
 $('#btnPrev').addEventListener('click', () => go(-1));

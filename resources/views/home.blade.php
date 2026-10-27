@@ -84,6 +84,14 @@
   .at b{display:block;font-size:13.5px;color:var(--ink)}
   .at span{display:block;font-size:12px;color:var(--mut);margin-top:2px}
   .at .ch{margin-inline-start:auto;color:var(--mut);align-self:center}
+  .td{display:flex;gap:10px;align-items:center;border-radius:12px;padding:9px 12px;margin-bottom:6px;border:1px solid #eef1f0;text-decoration:none;color:inherit}
+  .td .ai{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;border:2px solid #d5dedb;font-size:13px;font-weight:700;color:#fff}
+  .td.done .ai{background:#1e7a46;border-color:#1e7a46} .td.late{background:#fdf0ee;border-color:#f3cfca} .td.late .ai{border-color:#e15a4f;color:#e15a4f}
+  .td b{display:block;font-size:13px;color:var(--ink);line-height:1.45} .td.done b{color:var(--mut);text-decoration:line-through}
+  .td span{display:block;font-size:11.5px;color:var(--mut)}
+  .td em{margin-inline-start:auto;font-style:normal;font-size:12px;font-weight:700;direction:ltr;color:var(--mut)} .td.late em{color:#c0362c}
+  .td-bar{height:6px;background:#e9eeec;border-radius:99px;overflow:hidden;margin:-4px 0 10px}
+  .td-bar i{display:block;height:100%;background:#1e7a46}
   .ok-box{display:flex;align-items:center;gap:8px;background:#eef8f2;color:#1e7a46;border-radius:12px;padding:12px;font-size:13.5px;font-weight:600}
   .act{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #eef1f0}
   .act:last-child{border-bottom:0}
@@ -109,12 +117,27 @@
     $D = \App\Support\HomeDashboard::for($user);
     $I = fn ($n, $s = 20) => \App\Support\Icon::svg($n, $s);
     $cv = $D['compliance']['value'];
+    $T = \App\Support\DailyTasks::forUser($user);
     $circ = 2 * M_PI * 26;
   @endphp
 
   <div class="hd">
     {{-- ===================== الجانب ===================== --}}
     <aside class="hd-side">
+      @if ($T['total'])
+        <div class="pn" id="today">
+          <h3>{!! $I('tasks', 20) !!} مهام اليوم <span style="margin-inline-start:auto;font-size:12.5px;color:{{ $T['late'] ? '#c0362c' : '#1e7a46' }};font-weight:700">{{ $T['done'] }}/{{ $T['total'] }}{{ $T['late'] ? ' · ' . $T['late'] . ' متأخرة' : '' }}</span></h3>
+          <div class="td-bar"><i style="width:{{ round($T['done'] / $T['total'] * 100) }}%"></i></div>
+          @foreach (array_slice($T['items'], 0, 6) as $it)
+            <a href="{{ $it['url'] }}" class="td {{ $it['state'] }}">
+              <span class="ai">{{ $it['state'] === 'done' ? '✓' : ($it['state'] === 'late' ? '!' : '') }}</span>
+              <div style="min-width:0"><b>{{ $it['title'] }}</b><span>{{ $it['sub'] }}</span></div>
+              <em>{{ $it['due'] }}</em>
+            </a>
+          @endforeach
+          <a href="{{ route('daily.index') }}" style="display:block;text-align:center;font-size:13px;font-weight:700;color:#0f6e64;text-decoration:none;margin-top:6px">{{ $T['total'] > 6 ? 'كل المهام (' . $T['total'] . ')' : 'فتح مهام اليوم' }} ←</a>
+        </div>
+      @endif
       <div class="pn" id="attention">
         <h3>{!! $I('bell', 20) !!} يتطلب انتباهك @if (count($D['alerts']))<span style="margin-inline-start:auto;background:#fbe4e2;color:#c0362c;border-radius:99px;padding:0 9px;font-size:12px">{{ collect($D['alerts'])->sum('n') }}</span>@endif</h3>
         @forelse ($D['alerts'] as $a)

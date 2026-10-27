@@ -196,6 +196,7 @@
         @endif
         @if ($me->tenant_id)
           <a href="{{ route('notifications.index') }}">{!! \App\Support\Icon::svg('bell', 18) !!} الإشعارات <span class="nbc" id="nbMenuN" hidden></span></a>
+          <a href="{{ route('daily.index') }}">{!! \App\Support\Icon::svg('tasks', 18) !!} مهام اليوم</a>
           <button type="button" data-push="on" hidden>{!! \App\Support\Icon::svg('bell', 18) !!} تفعيل الإشعارات على هذا الجهاز</button>
           <button type="button" data-install hidden>{!! \App\Support\Icon::svg('home', 18) !!} تثبيت التطبيق على الجهاز</button>
           <a href="{{ route('jobs.mine') }}">{!! \App\Support\Icon::svg('file', 18) !!} وصفي الوظيفي</a>

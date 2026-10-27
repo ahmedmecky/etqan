@@ -147,6 +147,7 @@
       <h1 class="page-title" style="margin:0">خريطة نظام إدارة الجودة ومصفوفة المسؤوليات</h1>
       <p class="page-sub" style="margin:0">الإجراءات الـ ٣٤ وترابطها · من يعتمد ومن ينفذ · حالة كل إجراء في سجل الوثائق</p>
     </div>
+    <a href="{{ route('qms.flows') }}" class="btn ghost">مخططات سير العمل</a>
     <a href="{{ route('documents.index', ['type' => 'sop']) }}" class="btn ghost">سجل الوثائق</a>
   </div>
 @verbatim
