@@ -66,7 +66,10 @@
           <button type="submit" class="btn ghost small">تسجيل توقيع الموظف</button>
         </form>
       @endif
-      <button type="button" class="btn gold" onclick="window.print()">طباعة</button>
+      @if (isset(\App\Support\WorkCards::CARDS[$job['code']]))
+        <a href="{{ route('workcards.show', [$job['code']] + ($user ? ['user' => $user->id] : [])) }}" class="btn ghost small" target="_blank">طباعة البطاقة المبسطة</a>
+      @endif
+      <button type="button" class="btn gold" onclick="window.print()">طباعة الوصف</button>
     </div>
   </div>
 

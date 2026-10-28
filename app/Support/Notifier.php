@@ -23,6 +23,8 @@ class Notifier
         'temp'      => ['label' => 'انحراف حرارة', 'hint' => 'أي قراءة خارج الحدود في جولة الحرارة', 'module' => 'temperature', 'icon' => 'thermo'],
         'field'     => ['label' => 'تفتيش ميداني جديد', 'hint' => 'عند إرسال المفوض لنتيجة الفحص من رابطه الشخصي', 'module' => 'inspection', 'icon' => 'search'],
         'daily'     => ['label' => 'مهام يومية لم تُنجز', 'hint' => 'قراءة حرارة أو مهمة يومية فات موعدها ولم تُسجل (تُرسل مرة واحدة لكل مهمة في اليوم)', 'module' => null, 'icon' => 'tasks'],
+        'recall'    => ['label' => 'سحب أدوية (استدعاء)', 'hint' => 'عند فتح سحب لتشغيلة، وإذا تجاوز موعد إبلاغ العملاء وما زال عملاء لم يُبلغوا (مرة يومياً)', 'module' => null, 'icon' => 'alert',
+            'roles' => ['pharmacist_manager', 'quality_manager', 'retail_sales_supervisor', 'wholesale_sales_manager', 'distribution_supervisor']],
         'maint'     => ['label' => 'انتهاء عقود الصيانة والأجهزة', 'hint' => 'عقد صيانة أو طفاية أو معايرة جهاز اقترب موعدها أو انتهى (قبل الموعد، ثم قبله بأسبوع، ثم كل أسبوع بعد الانتهاء)', 'module' => null, 'icon' => 'gear',
             'roles' => ['pharmacist_manager', 'quality_manager', 'general_manager', 'ceo', 'managing_director']],
         'overdue'   => ['label' => 'ملخص الصباح (٨ ص)', 'hint' => 'يومياً: المتأخر وما ينتظر الشخص (انحرافات · قرارات · وثائق · تدريب)', 'module' => null, 'icon' => 'calendar'],
@@ -31,6 +33,7 @@ class Notifier
     /** أنواع إشعارات إضافية (بدون إعداد): للعرض في الجرس */
     public const LABELS = [
         'approval' => 'اعتماد مطلوب',
+        'task'     => 'مهمة',
         'test'     => 'إشعار تجريبي',
     ];
 

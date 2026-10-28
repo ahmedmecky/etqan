@@ -29,7 +29,11 @@
         @endforeach
       @endif
     </div>
-    <button type="button" class="btn gold" onclick="window.print()">طباعة</button>
+    <div class="actions" style="gap:6px">
+      <a href="{{ route('workcards.sop', $doc->code) }}" class="btn ghost small" target="_blank">البطاقات المبسطة</a>
+      <a href="{{ route('qms.flows', ['f' => $doc->code]) }}" class="btn ghost small" target="_blank">مخطط سير العمل</a>
+      <button type="button" class="btn gold" onclick="window.print()">طباعة</button>
+    </div>
   </div>
 
   <div class="pd">

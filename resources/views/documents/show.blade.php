@@ -64,6 +64,12 @@
     </div>
     <div class="actions">
       @if ($hasLib)<a href="{{ route('documents.print', $doc) }}" class="btn gold" target="_blank">طباعة{{ $cur ? ' الساري' : '' }}</a>@endif
+      @if ($doc->type === 'sop' && \App\Support\SopLibrary::get($doc->code))
+        <a href="{{ route('workcards.sop', $doc->code) }}" class="btn ghost" target="_blank">طباعة البطاقات المبسطة</a>
+        <a href="{{ route('qms.flows', ['f' => $doc->code]) }}" class="btn ghost">مخطط سير العمل</a>
+      @elseif ($doc->type === 'jd' && isset(\App\Support\WorkCards::CARDS[$doc->code]))
+        <a href="{{ route('workcards.show', $doc->code) }}" class="btn ghost" target="_blank">طباعة البطاقة المبسطة</a>
+      @endif
       <a href="{{ route('documents.queue') }}" class="btn ghost">قائمة الانتظار</a>
       <a href="{{ route('documents.index') }}" class="btn ghost">سجل الوثائق</a>
     </div>

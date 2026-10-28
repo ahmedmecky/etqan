@@ -120,6 +120,26 @@ Artisan::command('etqan:daily-check {--dry : عرض المتأخر بدون إر
             Notifier::event($tenant->id, 'daily', $m['title'], $m['body'], $m['url'], $m['tag'], true);
             $sent++;
         }
+        // السحب: تجاوز موعد إبلاغ العملاء (مرة يومياً لكل سحب بعد ٩ ص)
+        if (now('Africa/Cairo')->format('H:i') >= '09:00') {
+            foreach (\App\Support\Recalls::overdue($tenant->id) as $rc) {
+                $tag = 'recall-late-' . $rc->id . '-' . now('Africa/Cairo')->format('Ymd');
+                if (\App\Models\AppNotification::withoutGlobalScope('tenant')->where('tenant_id', $tenant->id)->where('tag', $tag)->exists()) {
+                    continue;
+                }
+                $left = $rc->customers->whereNull('notified_at')->count();
+                $this->line("[{$tenant->code}] سحب {$rc->number} · {$left} عميل لم يُبلغ");
+                if (! $this->option('dry')) {
+                    Notifier::event($tenant->id, 'recall', 'سحب تجاوز موعد الإبلاغ: ' . $rc->product,
+                        "{$left} عميل لم يُبلغ · تشغيلة {$rc->batch} · الموعد " . $rc->deadline->format('Y-m-d') . ' · ' . $rc->number,
+                        route('recalls.show', $rc), $tag, true);
+                    $sent++;
+                }
+            }
+        }
+
+        // المهام المكلف بها: تذكير قبل الموعد ويومه · إشعار التأخير
+        $sent += \App\Support\Tasks::remind($tenant->id, (bool) $this->option('dry'), fn ($l) => $this->line("[{$tenant->code}] مهمة · {$l}"));
         Notifier::flush();
         \App\Support\TempRounds::forget();
     }

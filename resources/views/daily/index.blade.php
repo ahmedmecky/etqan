@@ -56,6 +56,9 @@
       <p class="page-sub" style="margin:0">{{ ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][$date->dayOfWeek] }} <span class="ltr">{{ $date->format('Y-m-d') }}</span>
         @unless ($isToday) · <b>يوم سابق</b>@endunless</p>
     </div>
+    <div class="actions" style="margin:0">
+      <a href="{{ route('tasks.index') }}" class="btn ghost small">المهام المكلف بها</a>
+    </div>
     @if ($manager)
       <form method="GET" action="{{ route('daily.index') }}" class="actions" style="margin:0">
         <input type="date" name="date" value="{{ $date->toDateString() }}" max="{{ now('Africa/Cairo')->toDateString() }}" onchange="this.form.submit()" style="width:auto;direction:ltr">
@@ -80,7 +83,7 @@
     <div class="it {{ $it['state'] }}">
       <span class="ck">{{ $it['state'] === 'done' ? '✓' : ($it['state'] === 'late' ? '!' : '') }}</span>
       <div class="tx">
-        @if ($it['kind'] === 'temp')
+        @if ($it['kind'] === 'temp' || $it['kind'] === 'job')
           <a href="{{ $it['url'] }}" style="color:inherit;text-decoration:none"><b>{{ $it['title'] }}</b></a>
         @else
           <b>{{ $it['title'] }}</b>
@@ -101,6 +104,20 @@
               @csrf
               <input type="text" name="note" maxlength="500" placeholder="ملاحظة (اختياري)">
               <button type="submit" class="btn">✓ تم</button>
+            </form>
+          @endif
+        @elseif ($isToday && $it['kind'] === 'job')
+          @if ($it['state'] === 'done')
+            <form method="POST" action="{{ route('tasks.reopen', $it['task']) }}" class="go">
+              @csrf
+              <button type="submit" class="btn ghost small">إعادة فتح</button>
+            </form>
+          @else
+            <form method="POST" action="{{ route('tasks.done', $it['task']) }}" class="go">
+              @csrf
+              <input type="text" name="note" maxlength="500" placeholder="ملاحظة (اختياري)">
+              <button type="submit" class="btn">✓ تم</button>
+              <a href="{{ $it['url'] }}" class="btn ghost small">التفاصيل</a>
             </form>
           @endif
         @elseif ($it['kind'] === 'temp' && $it['state'] !== 'done' && $isToday)

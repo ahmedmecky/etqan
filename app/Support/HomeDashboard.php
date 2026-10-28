@@ -114,6 +114,7 @@ class HomeDashboard
                         'm' => 'documents', 'url' => route('documents.queue'), 'count' => $n($docPending) . ' قيد المراجعة', 'code' => 'SH-014'],
                     ['title' => 'سجل الوثائق', 'desc' => 'أرشيف الوثائق المعتمدة والسارية وإصداراتها', 'icon' => 'folder', 'tone' => 'green',
                         'url' => route('documents.index'), 'count' => $n($docEff) . ' وثيقة سارية', 'code' => 'SH-014'],
+                    ...(Recalls::canWork($this->u) ? [$this->recallCard()] : []),
                 ],
             ],
             [
@@ -158,6 +159,8 @@ class HomeDashboard
                     ['title' => 'محاضر الاجتماعات', 'desc' => 'محاضر اجتماعات الإدارة واللجان والأقسام', 'icon' => 'people', 'tone' => 'green',
                         'm' => 'meetings', 'url' => route('forms.page', 'meeting-minutes'), 'count' => $n($mmAll) . ' محضر', 'code' => 'SH-034'],
                     ...(\App\Http\Controllers\JobController::canManage($this->u) ? [$this->jobsCard()] : []),
+                    ['title' => 'بطاقات العمل المبسطة', 'desc' => 'ماذا يفعل كل عامل بالضبط: خطواته من الإجراءات بخط كبير للطباعة', 'icon' => 'clipcheck', 'tone' => 'teal',
+                        'url' => route('workcards.index'), 'count' => count(WorkCards::CARDS) . ' بطاقة', 'links' => [['بطاقتي', route('workcards.mine')], ['مخططات سير العمل', route('qms.flows')]]],
                 ],
             ],
         ];
@@ -206,6 +209,16 @@ class HomeDashboard
     /* ======================================================= */
 
     /** بطاقة الهيكل الوظيفي: الوظائف بدون شاغل ومهامها لم تُوزع · مستخدمون بدون وصف */
+    /** بطاقة الاستدعاء والسحب */
+    private function recallCard(): array
+    {
+        $open = \App\Models\Recall::query()->where('status', 'open')->count();
+        $year = \App\Models\Recall::query()->whereYear('received_on', $this->today->year)->count();
+
+        return ['title' => 'الاستدعاء والسحب', 'desc' => 'منشورات السحب · إبلاغ العملاء · إقرارات الصيدليات الموقعة · التسوية', 'icon' => 'alert', 'tone' => 'red',
+            'url' => route('recalls.index'), 'count' => number_format($year) . ' سحب هذا العام', 'warn' => $open ? $open . ' مفتوح' : null, 'code' => 'SH-010'];
+    }
+
     /** بطاقة الصيانة والأجهزة */
     private function maintCard(): array
     {
@@ -356,6 +369,9 @@ class HomeDashboard
         if (! empty($tr['effLate'])) $out->push(['n' => $tr['effLate'], 'tone' => 'warn', 'icon' => 'user', 'title' => 'متابعة فاعلية تدريب متأخرة',
             'sub' => "{$tr['effLate']} تدريب تجاوز موعد المتابعة", 'url' => route('training.index')]);
 
+        foreach (Recalls::homeAlerts($u) as $m) {
+            $out->push($m);
+        }
         foreach (Maintenance::homeAlerts($u) as $m) {
             $out->push($m);
         }

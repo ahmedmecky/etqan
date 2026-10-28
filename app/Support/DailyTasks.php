@@ -106,7 +106,12 @@ class DailyTasks
             ];
         }
 
-        usort($items, fn ($a, $b) => [$a['state'] === 'done' ? 1 : 0, $a['due']] <=> [$b['state'] === 'done' ? 1 : 0, $b['due']]);
+        // المهام المكلف بها (لمرة واحدة): المستحقة اليوم والمتأخرة
+        foreach (Tasks::dailyItems($u, $date) as $it) {
+            $items[] = $it;
+        }
+
+        usort($items, fn ($a, $b) => [$a['state'] === 'done' ? 1 : 0, $a['sort'] ?? $a['due']] <=> [$b['state'] === 'done' ? 1 : 0, $b['sort'] ?? $b['due']]);
         $c = collect($items);
 
         return ['items' => $items, 'done' => $c->where('state', 'done')->count(), 'total' => $c->count(), 'late' => $c->where('state', 'late')->count()];

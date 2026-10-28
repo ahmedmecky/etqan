@@ -231,6 +231,8 @@
         @if ($me->tenant_id)
           <a href="{{ route('notifications.index') }}">{!! \App\Support\Icon::svg('bell', 18) !!} الإشعارات <span class="nbc" id="nbMenuN" hidden></span></a>
           <a href="{{ route('daily.index') }}">{!! \App\Support\Icon::svg('tasks', 18) !!} مهام اليوم</a>
+          <a href="{{ route('workcards.mine') }}" target="_blank">{!! \App\Support\Icon::svg('clipcheck', 18) !!} بطاقة عملي</a>
+          <a href="{{ route('tasks.index') }}">{!! \App\Support\Icon::svg('check', 18) !!} المهام المكلف بها</a>
           <button type="button" data-push="on" hidden>{!! \App\Support\Icon::svg('bell', 18) !!} تفعيل الإشعارات على هذا الجهاز</button>
           <button type="button" data-install hidden>{!! \App\Support\Icon::svg('home', 18) !!} تثبيت التطبيق على الجهاز</button>
           <a href="{{ route('jobs.mine') }}">{!! \App\Support\Icon::svg('file', 18) !!} وصفي الوظيفي</a>

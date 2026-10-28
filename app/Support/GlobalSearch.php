@@ -104,6 +104,7 @@ class GlobalSearch
             ['key' => 'docs',    'title' => 'الإجراءات والوثائق',    'items' => self::docs($u, $words)],
             ['key' => 'forms',   'title' => 'نماذج الإجراءات',       'items' => self::sopForms($u, $words)],
             ['key' => 'assets',  'title' => 'الأجهزة وعقود الصيانة', 'items' => self::maint($u, $words)],
+            ['key' => 'recalls', 'title' => 'عمليات السحب',          'items' => self::recalls($u, $words)],
             ['key' => 'users',   'title' => 'المستخدمون',           'items' => self::users($u, $words)],
         ];
         $groups = array_values(array_filter($groups, fn ($g) => $g['items']));
@@ -192,6 +193,26 @@ class GlobalSearch
         return $out;
     }
 
+    /** عمليات السحب: بالرقم أو الصنف أو التشغيلة */
+    private static function recalls(User $u, array $words): array
+    {
+        if (! Recalls::canWork($u)) {
+            return [];
+        }
+        $out = [];
+        foreach (\App\Models\Recall::query()->latest('id')->limit(300)->get() as $r) {
+            if (self::hit($r->number . ' ' . $r->product . ' ' . $r->batch . ' ' . $r->circular_no . ' سحب استدعاء', $words)) {
+                $out[] = ['title' => $r->product, 'code' => $r->number, 'sub' => 'تشغيلة ' . $r->batch . ' · ' . $r->received_on->format('Y-m-d'),
+                    'badge' => $r->isOpen() ? 'مفتوح' : 'مغلق', 'state' => $r->isOpen() ? 'pending' : 'effective', 'url' => route('recalls.show', $r)];
+                if (count($out) >= 8) {
+                    break;
+                }
+            }
+        }
+
+        return $out;
+    }
+
     /** الأجهزة (بالرقم التسلسلي) وعقود الصيانة */
     private static function maint(User $u, array $words): array
     {
@@ -251,6 +272,10 @@ class GlobalSearch
     {
         return [
             ['مهام اليوم', 'قائمة المهام اليومية وقراءات الحرارة', 'daily.index', [], 'مهام يوميه تودو متاخر', null, false],
+            ['الاستدعاء والسحب', 'منشورات السحب وإبلاغ العملاء وإقرارات الصيدليات', 'recalls.index', [], 'سحب استدعاء منشور تشغيله مسحوب اقرار صيدليه SH-010', 'recall', false],
+            ['بطاقات العمل المبسطة', 'خطوات كل وظيفة من الإجراءات للطباعة', 'workcards.index', [], 'بطاقه عمل مبسطه خطوات عامل نظافه محضر سائق امن', null, false],
+            ['بطاقة عملي', 'بطاقتي المبسطة للطباعة', 'workcards.mine', [], 'بطاقتي بطاقه عملي', null, false],
+            ['المهام المكلف بها', 'تكليف موظف بمهمة · مهامي · كلفت بها', 'tasks.index', [], 'مهام مهمه تكليف تاسك عاجل مهم موعد', null, false],
             ['خريطة الجودة', 'خريطة منظومة الجودة ومصفوفة المسؤوليات RACI', 'qms.map', [], 'منظومه راسي مسؤوليات اجراءات', null, false],
             ['مخططات سير العمل', 'مخطط الاستلام SH-001 ومخطط تحضير الطلبيات وتوزيعها SH-004', 'qms.flows', [], 'فلو شارت مخطط استلام توزيع تحضير', null, false],
             ['سجل الوثائق', 'التحكم في الوثائق: الإجراءات والأوصاف والمؤشرات', 'documents.index', [], 'وثائق مستندات SOP اجراءات SH-014', null, false],
@@ -307,7 +332,7 @@ class GlobalSearch
             if ($admin && ! ($route === 'jobs.index' ? $hr : $u->isClientAdmin())) {
                 continue;
             }
-            if ($module === 'maint' ? ! Maintenance::canView($u) : ($module && ! Access::can($u, $module, 'view'))) {
+            if ($module === 'recall' ? ! Recalls::canWork($u) : ($module === 'maint' ? ! Maintenance::canView($u) : ($module && ! Access::can($u, $module, 'view')))) {
                 continue;
             }
             if (self::hit($title . ' ' . $desc . ' ' . $kw, $words)) {

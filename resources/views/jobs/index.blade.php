@@ -88,7 +88,8 @@
               </td>
               <td class="actions" style="gap:4px;flex-wrap:nowrap">
                 <a href="{{ route('jobs.edit', $r['code']) }}" class="btn ghost small">إعداد</a>
-                <a href="{{ route('jobs.print', $r['code']) }}" class="btn ghost small" target="_blank">طباعة</a>
+                <a href="{{ route('jobs.print', $r['code']) }}" class="btn ghost small" target="_blank">طباعة الوصف</a>
+                <a href="{{ route('workcards.show', $r['code']) }}" class="btn ghost small" target="_blank">بطاقة مبسطة</a>
               </td>
             </tr>
           @endforeach

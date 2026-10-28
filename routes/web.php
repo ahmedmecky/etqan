@@ -24,6 +24,9 @@ use App\Http\Controllers\FlowChartController;
 use App\Http\Controllers\DailyTaskController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\MaintenanceController;
+use App\Http\Controllers\TaskController;
+use App\Http\Controllers\RecallController;
+use App\Http\Controllers\WorkCardController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\Client\PermissionController;
 use App\Http\Controllers\Client\NotifyRuleController;
@@ -241,6 +244,12 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/qms-map', QmsMapController::class)->name('qms.map');
         Route::get('/qms-flows', FlowChartController::class)->name('qms.flows');
 
+        // بطاقات العمل المبسطة (من خطوات الإجراءات): لكل وظيفة · لموظف · لإجراء
+        Route::get('/work-cards', [WorkCardController::class, 'index'])->name('workcards.index');
+        Route::get('/work-cards/mine', [WorkCardController::class, 'mine'])->name('workcards.mine');
+        Route::get('/work-cards/sop/{code}', [WorkCardController::class, 'sop'])->where('code', 'SH-\d{3}')->name('workcards.sop');
+        Route::get('/work-cards/{key}', [WorkCardController::class, 'show'])->where('key', 'JD-[A-Z]{2}-\d{2}|[A-Z]{2}')->name('workcards.show');
+
         // البحث العام · دليل الوثائق (SOP · KPI · JD)
         Route::get('/search', [SearchController::class, 'index'])->middleware('throttle:120,1')->name('search');
         Route::get('/library', [SearchController::class, 'library'])->name('library');
@@ -261,6 +270,29 @@ Route::middleware(['auth', 'active'])->group(function () {
 
         // مهام اليوم: التنفيذ · الإعداد (مدير المخزن ومدير الجودة)
         Route::get('/daily', [DailyTaskController::class, 'index'])->name('daily.index');
+
+        // الاستدعاء والسحب من السوق (SH-010): السجل · العملاء · إقرارات الصيدليات · التسوية
+        Route::get('/recalls', [RecallController::class, 'index'])->name('recalls.index');
+        Route::post('/recalls', [RecallController::class, 'store'])->name('recalls.store');
+        Route::get('/recalls/{recall}', [RecallController::class, 'show'])->whereNumber('recall')->name('recalls.show');
+        Route::put('/recalls/{recall}', [RecallController::class, 'update'])->whereNumber('recall')->name('recalls.update');
+        Route::post('/recalls/{recall}/close', [RecallController::class, 'close'])->whereNumber('recall')->name('recalls.close');
+        Route::post('/recalls/{recall}/reopen', [RecallController::class, 'reopen'])->whereNumber('recall')->name('recalls.reopen');
+        Route::get('/recalls/{recall}/declarations', [RecallController::class, 'declarations'])->whereNumber('recall')->name('recalls.declarations');
+        Route::get('/recalls/{recall}/report', [RecallController::class, 'report'])->whereNumber('recall')->name('recalls.report');
+        Route::post('/recalls/{recall}/customers', [RecallController::class, 'addCustomers'])->whereNumber('recall')->name('recalls.customers.add');
+        Route::put('/recalls/{recall}/customers/{customer}', [RecallController::class, 'updateCustomer'])->whereNumber(['recall', 'customer'])->name('recalls.customers.update');
+        Route::post('/recalls/{recall}/customers/{customer}/notified', [RecallController::class, 'notified'])->whereNumber(['recall', 'customer'])->name('recalls.customers.notified');
+        Route::delete('/recalls/{recall}/customers/{customer}', [RecallController::class, 'destroyCustomer'])->whereNumber(['recall', 'customer'])->name('recalls.customers.destroy');
+        Route::get('/recalls/{recall}/customers/{customer}/file', [RecallController::class, 'file'])->whereNumber(['recall', 'customer'])->name('recalls.customers.file');
+
+        // المهام المكلف بها (لمرة واحدة): لمن · المهمة · النوع · الموعد · إشعار
+        Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
+        Route::post('/tasks', [TaskController::class, 'store'])->middleware('throttle:60,1')->name('tasks.store');
+        Route::put('/tasks/{task}', [TaskController::class, 'update'])->whereNumber('task')->name('tasks.update');
+        Route::post('/tasks/{task}/done', [TaskController::class, 'done'])->whereNumber('task')->name('tasks.done');
+        Route::post('/tasks/{task}/reopen', [TaskController::class, 'reopen'])->whereNumber('task')->name('tasks.reopen');
+        Route::post('/tasks/{task}/cancel', [TaskController::class, 'cancel'])->whereNumber('task')->name('tasks.cancel');
         Route::post('/daily/tasks', [DailyTaskController::class, 'store'])->name('daily.tasks.store');
         Route::post('/daily/tasks/seed', [DailyTaskController::class, 'seed'])->name('daily.tasks.seed');
         Route::put('/daily/tasks/{task}', [DailyTaskController::class, 'update'])->whereNumber('task')->name('daily.tasks.update');
