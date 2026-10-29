@@ -27,6 +27,7 @@ class Role extends Model
     /** الأدوار التي يمكن لمدير العميل منحها لمستخدميه */
     public function scopeAssignableByClient($query)
     {
-        return $query->where('level', self::LEVEL_USER)->orderBy('sort');
+        // المراجع الخارجي يُنشأ من شاشة المراجعة فقط (حساب مؤقت)
+        return $query->where('level', self::LEVEL_USER)->where('key', '!=', 'external_auditor')->orderBy('sort');
     }
 }

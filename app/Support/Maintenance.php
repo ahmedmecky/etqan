@@ -70,7 +70,7 @@ class Maintenance
     /** يرى الشاشة ويجرد الأجهزة */
     public static function canView(User $u): bool
     {
-        return self::canManage($u) || $u->hasRole('wholesale_storekeeper', 'retail_storekeeper', 'receiving_storekeeper');
+        return self::canManage($u) || $u->hasRole('wholesale_storekeeper', 'retail_storekeeper', 'receiving_storekeeper', 'external_auditor');
     }
 
     public static function today(): Carbon

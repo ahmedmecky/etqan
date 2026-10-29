@@ -27,6 +27,7 @@ use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\RecallController;
 use App\Http\Controllers\WorkCardController;
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\Client\PermissionController;
 use App\Http\Controllers\Client\NotifyRuleController;
@@ -191,6 +192,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         // التحكم في الوثائق: السجل · قائمة الانتظار · الإصدارات والاعتماد · مكتبة إتقان والطباعة (SH-014)
         Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
         Route::get('/documents/queue', [DocumentController::class, 'queue'])->name('documents.queue');
+        Route::get('/documents/print-batch', [DocumentController::class, 'printBatch'])->name('documents.print.batch');
         Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
         Route::post('/documents/seed', [DocumentController::class, 'seed'])->name('documents.seed');
         Route::post('/documents/library-all', [DocumentController::class, 'libraryAll'])->name('documents.library.all');
@@ -285,6 +287,24 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/recalls/{recall}/customers/{customer}/notified', [RecallController::class, 'notified'])->whereNumber(['recall', 'customer'])->name('recalls.customers.notified');
         Route::delete('/recalls/{recall}/customers/{customer}', [RecallController::class, 'destroyCustomer'])->whereNumber(['recall', 'customer'])->name('recalls.customers.destroy');
         Route::get('/recalls/{recall}/customers/{customer}/file', [RecallController::class, 'file'])->whereNumber(['recall', 'customer'])->name('recalls.customers.file');
+
+        // المراجعة الخارجية (استشاري · هيئة الدواء · عميل): الخطة · الإدارات · الملاحظات · التقرير · الرد · الإغلاق
+        Route::get('/audits', [AuditController::class, 'index'])->name('audits.index');
+        Route::post('/audits', [AuditController::class, 'store'])->name('audits.store');
+        Route::get('/audits/{audit}', [AuditController::class, 'show'])->whereNumber('audit')->name('audits.show');
+        Route::put('/audits/{audit}', [AuditController::class, 'update'])->whereNumber('audit')->name('audits.update');
+        Route::post('/audits/{audit}/account', [AuditController::class, 'account'])->whereNumber('audit')->name('audits.account');
+        Route::post('/audits/{audit}/areas', [AuditController::class, 'addAreas'])->whereNumber('audit')->name('audits.areas.add');
+        Route::put('/audits/{audit}/areas/{area}', [AuditController::class, 'updateArea'])->whereNumber(['audit', 'area'])->name('audits.areas.update');
+        Route::delete('/audits/{audit}/areas/{area}', [AuditController::class, 'destroyArea'])->whereNumber(['audit', 'area'])->name('audits.areas.destroy');
+        Route::post('/audits/{audit}/findings', [AuditController::class, 'addFinding'])->whereNumber('audit')->name('audits.findings.add');
+        Route::put('/audits/{audit}/findings/{finding}', [AuditController::class, 'updateFinding'])->whereNumber(['audit', 'finding'])->name('audits.findings.update');
+        Route::delete('/audits/{audit}/findings/{finding}', [AuditController::class, 'destroyFinding'])->whereNumber(['audit', 'finding'])->name('audits.findings.destroy');
+        Route::post('/audits/{audit}/submit', [AuditController::class, 'submit'])->whereNumber('audit')->name('audits.submit');
+        Route::post('/audits/{audit}/reopen', [AuditController::class, 'reopen'])->whereNumber('audit')->name('audits.reopen');
+        Route::post('/audits/{audit}/close', [AuditController::class, 'close'])->whereNumber('audit')->name('audits.close');
+        Route::get('/audits/{audit}/print', [AuditController::class, 'print'])->whereNumber('audit')->name('audits.print');
+        Route::get('/audits/{audit}/file', [AuditController::class, 'file'])->whereNumber('audit')->name('audits.file');
 
         // المهام المكلف بها (لمرة واحدة): لمن · المهمة · النوع · الموعد · إشعار
         Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');

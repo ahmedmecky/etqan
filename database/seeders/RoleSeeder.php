@@ -48,6 +48,7 @@ class RoleSeeder extends Seeder
             ['it_officer',                'مسؤول الحاسب والأنظمة',                'IT Officer',                     3, 46],
             ['safety_officer',            'مسؤول السلامة',                        'Safety Officer',                 3, 47],
             ['security',                  'فرد أمن',                              'Security',                       3, 48],
+            ['external_auditor',          'مراجع خارجي (مؤقت)',                   'External Auditor',               3, 90],
         ];
 
         foreach ($roles as [$key, $ar, $en, $level, $sort]) {

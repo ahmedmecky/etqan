@@ -162,6 +162,12 @@ class JobController extends Controller
 
     private function render(Request $request, array $job, ?User $user): View
     {
+        return view('jobs.print', $this->jdData($request, $job, $user));
+    }
+
+    /** بيانات طباعة الوصف (تُستخدم أيضاً في الطباعة المجمعة من سجل الوثائق) */
+    public function jdData(Request $request, array $job, ?User $user): array
+    {
         $tenant = $request->user()->tenant;
         $settings = JobLibrary::settings();
         $count = JobLibrary::headcount($tenant->id);
@@ -187,12 +193,12 @@ class JobController extends Controller
             return collect($s['blocks'] ?? [])->where('type', 'table')->flatMap(fn ($b) => $b['rows']);
         })->unique(fn ($r) => $r[0] ?? '')->values()->all();
 
-        return view('jobs.print', [
+        return [
             'job' => $main, 'user' => $user, 'extra' => $extra, 'inherited' => $inherited, 'training' => $training,
             'tenant' => $tenant, 'note' => $settings[$job['code']]->note ?? null,
             'canManage' => self::canManage($request->user()),
             'today' => Carbon::today('Africa/Cairo')->toDateString(),
-        ] + $this->docControl($job['code']));
+        ] + $this->docControl($job['code']);
     }
 
     /** بيانات التحكم في الوثائق للوصف: الإصدار الساري وتاريخه وتوقيعات الاعتماد (SH-014) */

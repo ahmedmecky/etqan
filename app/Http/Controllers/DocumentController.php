@@ -550,6 +550,63 @@ class DocumentController extends Controller
         ]);
     }
 
+    /**
+     * طباعة مجمعة من سجل الوثائق: الوثائق المحددة (أو كل نتائج الفلتر) في ملف طباعة واحد · كل وثيقة تبدأ في صفحة جديدة
+     * ?ids[]=…  · ?forms=1 لإضافة نماذج كل إجراء · الوثائق المرفوعة كملفات (Word/PDF) تُذكر فقط ولا تُدمج
+     */
+    public function printBatch(Request $request): View
+    {
+        $u = $request->user();
+        $v = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:80'], 'ids.*' => ['integer']],
+            ['ids.required' => 'حدد وثيقة واحدة على الأقل.', 'ids.max' => 'الحد الأقصى ٨٠ وثيقة في الطباعة الواحدة.']);
+        $docs = Document::query()->with(['current', 'versions'])->whereIn('id', $v['ids'])->orderBy('code')->get();
+        $tenant = $u->tenant;
+        $reviewer = DocFlow::myStages($u) !== [];
+        $viewer = \App\Support\Access::can($u, 'documents', 'view');
+        $withForms = $request->boolean('forms');
+        $jobs = app(JobController::class);
+
+        $items = [];
+        $skipped = [];
+        foreach ($docs as $doc) {
+            $ver = $doc->current ?? $doc->working();
+            $open = $ver ? $ver->stage === 'effective' : true;
+            if (! $open && (int) $ver?->prepared_by !== $u->id && ! $reviewer && ! $viewer) {
+                $skipped[] = [$doc->code, 'غير مسموح بطباعة نسخة غير سارية'];
+                continue;
+            }
+            if ($ver && ! $ver->isLibrary()) {
+                $skipped[] = [$doc->code, 'ملف مرفوع (Word / PDF): يُطبع من صفحة الوثيقة'];
+                continue;
+            }
+            if ($doc->type === 'jd') {
+                $job = \App\Support\JobLibrary::get($doc->code);
+                if ($job) {
+                    $items[] = ['type' => 'jd', 'code' => $doc->code, 'vars' => $jobs->jdData($request, $job, null)];
+                } else {
+                    $skipped[] = [$doc->code, 'غير موجود في المكتبة'];
+                }
+                continue;
+            }
+            if (! DocLibrary::has($doc)) {
+                $skipped[] = [$doc->code, 'لا يوجد نص في مكتبة إتقان'];
+                continue;
+            }
+            $prev = $ver ? $doc->versions->where('id', '<', $ver->id)->whereIn('stage', ['effective', 'superseded'])->sortByDesc('id')->first()?->version : null;
+            $base = ['doc' => $doc, 'v' => $ver, 'tenant' => $tenant, 'prev' => $prev, 'sig' => DocLibrary::signatures($ver),
+                'draft' => ! $ver || $ver->stage !== 'effective', 'printedBy' => $u->displayName(), 'printedAt' => now('Africa/Cairo')->format('Y-m-d H:i')];
+            if ($doc->type === 'kpi') {
+                $items[] = ['type' => 'kpi', 'code' => $doc->code, 'vars' => $base + ['set' => DocLibrary::kpi($doc->code), 'approvers' => DocLibrary::KPI_APPROVERS,
+                    'bands' => \App\Support\KpiSets::BANDS, 'gateCap' => \App\Support\KpiSets::GATE_CAP]];
+                continue;
+            }
+            $sop = SopLibrary::fill(SopLibrary::get($doc->code), $ver?->fills ?? [], $tenant);
+            $items[] = ['type' => 'sop', 'code' => $doc->code, 'vars' => $base + ['sop' => $sop, 'forms' => $withForms ? $sop['forms'] : [], 'only' => false]];
+        }
+
+        return view('documents.print-batch', ['items' => $items, 'skipped' => $skipped, 'withForms' => $withForms, 'ids' => $v['ids']]);
+    }
+
     /* ======================================================= */
 
     private function own(Document $document, DocumentVersion $version): void

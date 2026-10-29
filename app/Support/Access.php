@@ -148,6 +148,8 @@ class Access
         if (! $u || ! $u->tenant_id) return 'none';
         if (self::full($u)) return 'use';
         $u->loadMissing('role');
+        // المراجع الخارجي: اطلاع على كل الشاشات (عدا تقييمات الأداء الشخصية)
+        if ($u->role?->key === 'external_auditor') return $module === 'kpi' ? 'none' : 'view';
 
         return self::overrides($u->tenant_id)['u'][$u->id][$module]
             ?? self::roleLevel($u->tenant_id, $u->role_id, $u->role?->key, $module);

@@ -22,8 +22,10 @@ class User extends Authenticatable
         'name_ar',
         'email',
         'phone',
+        'company',
         'password',
         'is_active',
+        'access_until',
         'last_login_at',
     ];
 
@@ -42,6 +44,7 @@ class User extends Authenticatable
             'extra_jobs'        => 'array',
             'hire_date'         => 'date',
             'jd_ack_at'         => 'date',
+            'access_until'      => 'date',
         ];
     }
 

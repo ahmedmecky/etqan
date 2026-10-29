@@ -29,6 +29,11 @@
   .steps3 b{font-size:13.5px} .steps3 span{font-size:12.5px;color:var(--muted);flex:1}
   .steps3 .done{color:var(--ok);font-weight:700;font-size:12.5px}
   @media (max-width:800px){.steps3{grid-template-columns:1fr}}
+  .pbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#f6fbfa;border:1px solid #cfe3df;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:13.5px}
+  .pbar .n{font-weight:700;color:var(--brand)}
+  .pbar label{display:flex;align-items:center;gap:5px;font-size:13px;margin:0}
+  td.ck,th.ck{width:30px;text-align:center}
+  td.ck input,th.ck input{width:17px;height:17px;accent-color:var(--brand)}
 </style>
 @endpush
 
@@ -112,9 +117,19 @@
       @if ($f['type'] !== '' || $f['status'] !== '' || $f['q'] !== '')<a href="{{ route('documents.index') }}" class="btn ghost">مسح</a>@endif
     </form>
 
+    <form method="GET" action="{{ route('documents.print.batch') }}" target="_blank" id="pb" class="pbar" onsubmit="return pbCheck()">
+      <span>طباعة مجمعة:</span>
+      <span class="n" id="pbN">٠ محددة</span>
+      <button type="submit" class="btn small">طباعة المحدد</button>
+      <button type="button" class="btn ghost small" onclick="pbAll()">طباعة كل النتائج ({{ $rows->count() }})</button>
+      <label><input type="checkbox" name="forms" value="1"> مع نماذج الإجراءات</label>
+      <span class="by">كل وثيقة في صفحة جديدة · فلتر النوع أو الحالة ثم حدد</span>
+    </form>
+
     <div class="tbl-wrap">
       <table class="t">
         <thead><tr>
+          <th class="ck"><input type="checkbox" id="pbHead" title="تحديد الكل" onclick="document.querySelectorAll('.pbx').forEach(c => c.checked = this.checked); pbCount()"></th>
           <th>الكود</th><th>العنوان</th><th>النوع</th><th>الإصدار الساري</th><th>تاريخ السريان</th><th>موعد المراجعة</th><th>الإصدار الجاري</th><th>الحالة</th>
         </tr></thead>
         <tbody>
@@ -123,6 +138,7 @@
               $d = $r['doc'];
             @endphp
             <tr class="{{ $d->is_active ? '' : 'off' }}">
+              <td class="ck"><input type="checkbox" class="pbx" name="ids[]" value="{{ $d->id }}" form="pb" onchange="pbCount()"></td>
               <td><a href="{{ route('documents.show', $d) }}" class="code">{{ $d->code }}</a></td>
               <td><a href="{{ route('documents.show', $d) }}" style="color:inherit">{{ $d->title }}</a>@if ($d->dept)<div class="by">{{ $d->dept }}</div>@endif</td>
               <td class="by">{{ $d->typeLabel() }}</td>
@@ -138,7 +154,7 @@
                 @if ($r['current'] && $r['current']->isLibrary())<a href="{{ route('documents.print', $d) }}" target="_blank" class="by" style="margin-inline-start:6px">طباعة</a>@endif</td>
             </tr>
           @empty
-            <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">
+            <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">
               {{ ($f['type'] !== '' || $f['status'] !== '' || $f['q'] !== '') ? 'لا توجد نتائج.' : 'السجل فارغ. ابدأ بإضافة وثائق مكتبة إتقان (الخطوة ١ أعلاه).' }}
             </td></tr>
           @endforelse
@@ -147,3 +163,24 @@
     </div>
   </div>
 @endsection
+
+@push('scripts')
+<script>
+  function pbCount() {
+    const n = document.querySelectorAll('.pbx:checked').length;
+    document.getElementById('pbN').textContent = n.toLocaleString('ar-EG') + ' محددة';
+    const h = document.getElementById('pbHead'), all = document.querySelectorAll('.pbx').length;
+    if (h) { h.checked = n > 0 && n === all; h.indeterminate = n > 0 && n < all; }
+  }
+  function pbCheck() {
+    const n = document.querySelectorAll('.pbx:checked').length;
+    if (!n) { alert('حدد وثيقة واحدة على الأقل، أو اضغط «طباعة كل النتائج».'); return false; }
+    if (n > 80) { alert('الحد الأقصى ٨٠ وثيقة في الطباعة الواحدة. ضيّق الفلتر.'); return false; }
+    return true;
+  }
+  function pbAll() {
+    document.querySelectorAll('.pbx').forEach(c => c.checked = true); pbCount();
+    if (pbCheck()) document.getElementById('pb').submit();
+  }
+</script>
+@endpush
