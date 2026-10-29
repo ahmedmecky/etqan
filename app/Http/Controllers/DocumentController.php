@@ -550,6 +550,29 @@ class DocumentController extends Controller
         ]);
     }
 
+    /** طباعة قائمة الوثائق المحددة (الكود والعنوان والإصدار والحالة فقط) */
+    public function printList(Request $request): View
+    {
+        $v = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:1000'], 'ids.*' => ['integer']],
+            ['ids.required' => 'حدد وثيقة واحدة على الأقل.']);
+        $today = Carbon::today('Africa/Cairo')->toDateString();
+        $rows = Document::query()->with(['current', 'versions'])->whereIn('id', $v['ids'])->orderBy('code')->get()->map(function (Document $d) use ($today) {
+            $w = $d->working();
+            $cur = $d->current;
+            $state = ! $d->is_active ? 'obsolete'
+                : ($w ? 'pending' : ($cur ? ($cur->review_due && $cur->review_due->toDateString() < $today ? 'review' : 'effective') : 'none'));
+
+            return ['doc' => $d, 'current' => $cur, 'working' => $w, 'state' => $state];
+        });
+        $types = $rows->pluck('doc.type')->unique();
+
+        return view('documents.print-list', [
+            'rows' => $rows, 'tenant' => $request->user()->tenant,
+            'title' => $types->count() === 1 ? 'قائمة ' . (['sop' => 'إجراءات التشغيل القياسية', 'jd' => 'الأوصاف الوظيفية', 'kpi' => 'مجموعات مؤشرات الأداء', 'form' => 'النماذج', 'policy' => 'السياسات'][$types->first()] ?? 'الوثائق') : 'قائمة الوثائق',
+            'printedAt' => now('Africa/Cairo')->format('Y-m-d H:i'), 'printedBy' => $request->user()->displayName(),
+        ]);
+    }
+
     /**
      * طباعة مجمعة من سجل الوثائق: الوثائق المحددة (أو كل نتائج الفلتر) في ملف طباعة واحد · كل وثيقة تبدأ في صفحة جديدة
      * ?ids[]=…  · ?forms=1 لإضافة نماذج كل إجراء · الوثائق المرفوعة كملفات (Word/PDF) تُذكر فقط ولا تُدمج

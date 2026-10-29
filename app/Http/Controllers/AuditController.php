@@ -251,16 +251,16 @@ class AuditController extends Controller
         $u = $request->user();
         abort_unless(Audits::canWrite($u, $audit), 403);
         $v = $request->validate([
-            'rating' => ['required', Rule::in(array_keys(Audits::RATINGS))], 'conclusion' => ['required', 'string', 'max:10000'],
+            'rating' => [$audit->type === 'consult' ? 'nullable' : 'required', Rule::in(array_keys(Audits::RATINGS))], 'conclusion' => ['required', 'string', 'max:10000'],
             'action' => ['required', Rule::in(['save', 'submit'])],
         ], ['rating.required' => 'اختر التقييم العام.', 'conclusion.required' => 'اكتب خلاصة المراجعة.']);
         $submit = $v['action'] === 'submit';
-        $audit->update(['rating' => $v['rating'], 'conclusion' => $v['conclusion']] + ($submit ? ['status' => 'reported', 'reported_at' => now()] : []));
+        $audit->update(['rating' => $v['rating'] ?? null, 'conclusion' => $v['conclusion']] + ($submit ? ['status' => 'reported', 'reported_at' => now()] : []));
 
         if ($submit) {
             $s = Audits::stats($audit->fresh('findings'));
             $managers = Notifier::users($audit->tenant_id)->filter(fn ($x) => Audits::canManage($x))->reject(fn ($x) => $x->id === $u->id);
-            Notifier::toUsers($managers, $audit->tenant_id, 'audit', null, 'صدر تقرير المراجعة: ' . $audit->title,
+            Notifier::toUsers($managers, $audit->tenant_id, 'audit', null, 'صدر ' . Audits::reportTitle($audit->type) . ': ' . $audit->title,
                 $audit->number . ' · ' . (Audits::RATINGS[$audit->rating] ?? '') . ' · ' . $s['action'] . ' ملاحظة تحتاج إجراء'
                 . ($s['grades']['critical'] ? ' · ' . $s['grades']['critical'] . ' حرجة' : ''),
                 route('audits.show', [$audit, 'tab' => 'capa']), 'audit-' . $audit->id, $s['grades']['critical'] > 0);

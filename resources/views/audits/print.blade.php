@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'تقرير المراجعة · ' . $a->number)
+@section('title', \App\Support\Audits::reportTitle($a->type) . ' · ' . $a->number)
 
 @push('head')
   @include('documents._print-style')
@@ -35,7 +35,7 @@
         @if ($logo)<img src="{{ $logo }}" alt="">@endif
         <div><b>{{ $tenant->name_ar }}</b><small>{{ $tenant->name_en }}</small><small>نظام إدارة الجودة · إتقان</small></div>
       </div>
-      <div class="tt"><span>{{ $a->typeLabel() }}</span><b>تقرير المراجعة</b><small>{{ $a->number }} · SH-012 · SH-025</small></div>
+      <div class="tt"><span>{{ $a->typeLabel() }}</span><b>{{ \App\Support\Audits::reportTitle($a->type) }}</b><small>{{ \App\Support\Audits::FORM }} · {{ $a->number }}</small></div>
       <div class="mt">الحالة: <b>{{ $a->statusLabel() }}</b><br>التقييم: <b>{{ \App\Support\Audits::RATINGS[$a->rating] ?? '—' }}</b></div>
     </div>
 
@@ -93,7 +93,7 @@
     </table>
 
     <div class="foot">
-      {{ $tenant->name_ar }} · تقرير مراجعة {{ $a->typeLabel() }} ({{ $a->number }}). تُتابع الإجراءات التصحيحية في سجل CAPA (SH-008) وتُعرض النتائج في مراجعة الإدارة (SH-013).
+      {{ $tenant->name_ar }} · {{ \App\Support\Audits::reportTitle($a->type) }} ({{ \App\Support\Audits::FORM }} · {{ $a->number }}) · طبقاً لإجراءي SH-012 و SH-025. تُتابع الإجراءات التصحيحية في سجل CAPA (SH-008) وتُعرض النتائج في مراجعة الإدارة (SH-013).
       <br>طُبع من نظام إتقان بتاريخ <span class="ltr">{{ $printedAt }}</span> بواسطة {{ $printedBy }}.
     </div>
   </div>

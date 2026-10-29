@@ -21,7 +21,7 @@ class JobLibrary
 
     /** الوظيفة المقترحة لكل دور نظام (عند إنشاء مستخدم) */
     public const ROLE_DEFAULT = [
-        'client_admin' => 'JD-MG-01', 'pharmacist_manager' => 'JD-PH-01', 'quality_manager' => 'JD-QA-01',
+        'client_admin' => 'JD-MG-01', 'pharmacist_manager' => 'JD-PH-01', 'quality_manager' => 'JD-QA-01', 'complaints_officer' => 'JD-QA-02',
         'receiving_storekeeper' => 'JD-WH-01', 'receiving_worker' => 'JD-WH-02',
         'wholesale_storekeeper' => 'JD-WH-03', 'retail_storekeeper' => 'JD-WH-04', 'control' => 'JD-WH-05', 'picker' => 'JD-WH-07',
         'driver' => 'JD-DS-01', 'distribution_supervisor' => 'JD-DS-03', 'fleet_supervisor' => 'JD-DS-04',

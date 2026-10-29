@@ -193,6 +193,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
         Route::get('/documents/queue', [DocumentController::class, 'queue'])->name('documents.queue');
         Route::get('/documents/print-batch', [DocumentController::class, 'printBatch'])->name('documents.print.batch');
+        Route::get('/documents/print-list', [DocumentController::class, 'printList'])->name('documents.print.list');
         Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
         Route::post('/documents/seed', [DocumentController::class, 'seed'])->name('documents.seed');
         Route::post('/documents/library-all', [DocumentController::class, 'libraryAll'])->name('documents.library.all');

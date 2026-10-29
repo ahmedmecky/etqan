@@ -117,13 +117,13 @@
       @if ($f['type'] !== '' || $f['status'] !== '' || $f['q'] !== '')<a href="{{ route('documents.index') }}" class="btn ghost">مسح</a>@endif
     </form>
 
-    <form method="GET" action="{{ route('documents.print.batch') }}" target="_blank" id="pb" class="pbar" onsubmit="return pbCheck()">
-      <span>طباعة مجمعة:</span>
+    <form method="GET" action="{{ route('documents.print.list') }}" target="_blank" id="pb" class="pbar" onsubmit="return pbCheck()">
       <span class="n" id="pbN">٠ محددة</span>
-      <button type="submit" class="btn small">طباعة المحدد</button>
-      <button type="button" class="btn ghost small" onclick="pbAll()">طباعة كل النتائج ({{ $rows->count() }})</button>
-      <label><input type="checkbox" name="forms" value="1"> مع نماذج الإجراءات</label>
-      <span class="by">كل وثيقة في صفحة جديدة · فلتر النوع أو الحالة ثم حدد</span>
+      <button type="submit" class="btn small">طباعة قائمة المحدد</button>
+      <button type="button" class="btn ghost small" onclick="pbAll()">طباعة قائمة كل النتائج ({{ $rows->count() }})</button>
+      <span class="by">الكود والعنوان والإصدار والحالة فقط · فلتر النوع أو الحالة ثم حدد</span>
+      <span style="margin-inline-start:auto"></span>
+      <button type="submit" formaction="{{ route('documents.print.batch') }}" class="btn ghost small" title="نص كل وثيقة كاملاً، كل وثيقة في صفحة">طباعة النصوص كاملة</button>
     </form>
 
     <div class="tbl-wrap">
@@ -175,7 +175,6 @@
   function pbCheck() {
     const n = document.querySelectorAll('.pbx:checked').length;
     if (!n) { alert('حدد وثيقة واحدة على الأقل، أو اضغط «طباعة كل النتائج».'); return false; }
-    if (n > 80) { alert('الحد الأقصى ٨٠ وثيقة في الطباعة الواحدة. ضيّق الفلتر.'); return false; }
     return true;
   }
   function pbAll() {

@@ -48,6 +48,7 @@ class RoleSeeder extends Seeder
             ['it_officer',                'مسؤول الحاسب والأنظمة',                'IT Officer',                     3, 46],
             ['safety_officer',            'مسؤول السلامة',                        'Safety Officer',                 3, 47],
             ['security',                  'فرد أمن',                              'Security',                       3, 48],
+            ['complaints_officer',        'مسؤول شكاوى العملاء',                  'Customer Complaints Officer',    3, 17],
             ['external_auditor',          'مراجع خارجي (مؤقت)',                   'External Auditor',               3, 90],
         ];
 

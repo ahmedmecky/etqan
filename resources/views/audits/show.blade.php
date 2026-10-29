@@ -21,10 +21,10 @@
       <p style="margin:0 0 4px"><a href="{{ route('audits.index') }}">← المراجعات الخارجية</a></p>
       <h1 class="page-title" style="margin-bottom:2px">{{ $a->title }} <span class="ltr" style="font-size:15px;color:var(--muted)">{{ $a->number }}</span></h1>
       <p class="page-sub" style="margin:0">{{ $a->typeLabel() }}@if ($a->company) · {{ $a->company }}@endif @if ($a->lead) · {{ $a->lead }}@endif
-        · <span class="ltr">{{ $a->start_date->format('Y-m-d') }}</span> ← <span class="ltr">{{ $a->end_date->format('Y-m-d') }}</span></p>
+        · <span class="ltr">{{ $a->start_date->format('Y-m-d') }}</span> ← <span class="ltr">{{ $a->end_date->format('Y-m-d') }}</span> · <span class="ltr">{{ \App\Support\Audits::FORM }}</span></p>
     </div>
     <div class="actions">
-      <a href="{{ route('audits.print', $a) }}" target="_blank" class="btn ghost">طباعة التقرير</a>
+      <a href="{{ route('audits.print', $a) }}" target="_blank" class="btn ghost">طباعة {{ \App\Support\Audits::reportTitle($a->type) }}</a>
       @if ($a->file_path)<a href="{{ route('audits.file', $a) }}" target="_blank" class="btn ghost small">تقرير الجهة المرفق</a>@endif
     </div>
   </div>
@@ -222,6 +222,7 @@
               @csrf
               <div class="grades" style="margin-bottom:10px">
                 @foreach (\App\Support\Audits::RATINGS as $k => $lbl)<label><input type="radio" name="rating" value="{{ $k }}" @checked(old('rating', $a->rating) === $k)> {{ $lbl }}</label>@endforeach
+                @if ($a->type === 'consult')<span class="hint">التقييم العام اختياري في الزيارة الاستشارية</span>@endif
               </div>
               <textarea name="conclusion" rows="6" maxlength="10000" style="width:100%" placeholder="خلاصة المراجع: مدى التزام المخزن بالمتطلبات، أهم نقاط القوة، أهم المخاطر، التوصيات وأولوياتها">{{ old('conclusion', $a->conclusion) }}</textarea>
               <div class="actions" style="margin-top:10px">

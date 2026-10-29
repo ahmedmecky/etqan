@@ -48,7 +48,7 @@ class Access
 
     /** قسم كل دور نظام في مصفوفة RACI */
     public const ROLE_DEPT = [
-        'ceo' => 'CEO', 'managing_director' => 'CEO', 'pharmacist_manager' => 'PH', 'quality_manager' => 'QA',
+        'ceo' => 'CEO', 'managing_director' => 'CEO', 'pharmacist_manager' => 'PH', 'quality_manager' => 'QA', 'complaints_officer' => 'QA',
         'hr_manager' => 'HR', 'hr_officer' => 'HR', 'commercial_director' => 'CM', 'purchasing_officer' => 'CM', 'data_entry' => 'CM',
         'accounts_manager' => 'FN', 'accountant' => 'FN',
         'wholesale_sales_manager' => 'SL', 'retail_sales_supervisor' => 'SL', 'telesales' => 'SL', 'sales_rep' => 'SL',
@@ -75,6 +75,8 @@ class Access
         'telesales'        => ['ordercheck' => 'none'],
         'sales_rep'        => ['ordercheck' => 'none'],
         'data_entry'       => ['ordercheck' => 'none'],
+        // مسؤول الشكاوى: يستخدم الشكاوى والانحرافات · باقي شاشات الجودة اطلاع
+        'complaints_officer' => ['inspection' => 'view', 'documents' => 'view', 'training' => 'view', 'meetings' => 'view'],
     ];
 
     /** الشاشة لكل نموذج */

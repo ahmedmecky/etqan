@@ -18,7 +18,23 @@ class Audits
 
     public const ROLE = 'external_auditor';
 
-    public const TYPES = ['external' => 'استشاري / جهة خارجية مستقلة', 'authority' => 'تفتيش هيئة الدواء', 'client' => 'مراجعة من عميل أو شركة أم'];
+    public const TYPES = ['external' => 'استشاري / جهة خارجية مستقلة', 'consult' => 'زيارة استشارية', 'authority' => 'تفتيش هيئة الدواء', 'client' => 'مراجعة من عميل أو شركة أم'];
+
+    /** كود النموذج: تقرير المراجعة الخارجية / الزيارة الاستشارية */
+    public const FORM = 'SH-012-F05';
+
+    public static function reportTitle(?string $type): string
+    {
+        return match ($type) {
+            'consult' => 'تقرير زيارة استشارية', 'authority' => 'تقرير تفتيش هيئة الدواء', 'client' => 'تقرير مراجعة عميل', default => 'تقرير المراجعة الخارجية',
+        };
+    }
+
+    /** الدرجة الافتراضية للملاحظة الجديدة (الزيارة الاستشارية: توصيات) */
+    public static function defaultGrade(?string $type): string
+    {
+        return $type === 'consult' ? 'ofi' : 'minor';
+    }
 
     public const STATUSES = ['plan' => 'تخطيط', 'fieldwork' => 'العمل الميداني', 'reported' => 'صدر التقرير', 'response' => 'الرد والإجراءات', 'closed' => 'مغلقة'];
 

@@ -19,7 +19,8 @@ class Notifier
 {
     /** الأحداث التي يختار مستلميها مدير المخزن */
     public const EVENTS = [
-        'complaint' => ['label' => 'شكوى عميل جديدة', 'hint' => 'من رابط الصيدليات أو المسجلة داخلياً عند إرسالها للتصنيف', 'module' => 'complaint', 'icon' => 'alert'],
+        'complaint' => ['label' => 'شكوى عميل جديدة', 'hint' => 'من رابط الصيدليات أو المسجلة داخلياً عند إرسالها للتصنيف', 'module' => 'complaint', 'icon' => 'alert',
+            'roles' => ['quality_manager', 'pharmacist_manager', 'complaints_officer']],
         'temp'      => ['label' => 'انحراف حرارة', 'hint' => 'أي قراءة خارج الحدود في جولة الحرارة', 'module' => 'temperature', 'icon' => 'thermo'],
         'field'     => ['label' => 'تفتيش ميداني جديد', 'hint' => 'عند إرسال المفوض لنتيجة الفحص من رابطه الشخصي', 'module' => 'inspection', 'icon' => 'search'],
         'daily'     => ['label' => 'مهام يومية لم تُنجز', 'hint' => 'قراءة حرارة أو مهمة يومية فات موعدها ولم تُسجل (تُرسل مرة واحدة لكل مهمة في اليوم)', 'module' => null, 'icon' => 'tasks'],
@@ -34,6 +35,7 @@ class Notifier
     public const LABELS = [
         'approval' => 'اعتماد مطلوب',
         'task'     => 'مهمة',
+        'audit'    => 'مراجعة خارجية',
         'test'     => 'إشعار تجريبي',
     ];
 
