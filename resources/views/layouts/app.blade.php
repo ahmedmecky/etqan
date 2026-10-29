@@ -144,6 +144,17 @@
   };
 </script>
 @stack('head')
+@if (auth()->check() && \App\Support\Audits::isAuditor(auth()->user()))
+<style>
+  /* المراجع الخارجي: علامة على كل المطبوعات + شريط «اطلاع فقط» */
+  .aud-bar{background:#7a1f17;color:#fff;text-align:center;font-size:13px;font-weight:700;padding:6px 12px}
+  @media print{
+    .aud-bar{display:none !important}
+    body::after{content:'نسخة للمراجع الخارجي · غير خاضعة للتحكم';position:fixed;top:45%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);
+      font-size:46px;font-weight:700;color:rgba(179,38,30,.14);white-space:nowrap;z-index:9999;pointer-events:none}
+  }
+</style>
+@endif
 </head>
 <body>
 @php
@@ -231,6 +242,9 @@
         @if ($me->tenant_id)
           <a href="{{ route('notifications.index') }}">{!! \App\Support\Icon::svg('bell', 18) !!} الإشعارات <span class="nbc" id="nbMenuN" hidden></span></a>
           <a href="{{ route('daily.index') }}">{!! \App\Support\Icon::svg('tasks', 18) !!} مهام اليوم</a>
+          @if (\App\Support\Audits::canManage($me) || \App\Support\Audits::isAuditor($me))
+            <a href="{{ route('audits.index') }}">{!! \App\Support\Icon::svg('search', 18) !!} المراجعات الخارجية</a>
+          @endif
           <a href="{{ route('workcards.mine') }}" target="_blank">{!! \App\Support\Icon::svg('clipcheck', 18) !!} بطاقة عملي</a>
           <a href="{{ route('tasks.index') }}">{!! \App\Support\Icon::svg('check', 18) !!} المهام المكلف بها</a>
           <button type="button" data-push="on" hidden>{!! \App\Support\Icon::svg('bell', 18) !!} تفعيل الإشعارات على هذا الجهاز</button>
@@ -254,6 +268,9 @@
   @endif
 </header>
 
+@if (auth()->check() && \App\Support\Audits::isAuditor(auth()->user()))
+  <div class="aud-bar">حساب مراجع خارجي · اطلاع فقط على النظام · الكتابة في شاشة المراجعة · ينتهي <span class="ltr">{{ auth()->user()->access_until?->format('Y-m-d') }}</span> · <a href="{{ route('audits.index') }}" style="color:#ffd9d4">مراجعتي</a></div>
+@endif
 <main class="wrap">
   @if (session('status'))
     <div class="alert ok">{{ session('status') }}</div>
