@@ -35,6 +35,9 @@ class Recalls
     /** تسجيل الإبلاغ والإقرارات والاسترجاع للعملاء */
     public static function canWork(User $u): bool
     {
+        if ($u->hasRole('external_auditor')) {
+            return Access::auditorCan($u, 'recall');
+        }
         return self::canManage($u) || $u->hasRole('retail_sales_supervisor', 'wholesale_sales_manager', 'telesales', 'sales_rep',
             'distribution_supervisor', 'purchasing_officer', 'commercial_director', 'wholesale_storekeeper', 'retail_storekeeper', 'general_manager', 'ceo', 'managing_director');
     }

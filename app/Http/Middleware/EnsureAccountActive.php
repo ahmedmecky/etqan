@@ -18,6 +18,12 @@ class EnsureAccountActive
     /** ما يُسمح للمراجع الخارجي بالكتابة فيه */
     private const AUDITOR_WRITES = ['audits.', 'logout', 'password.update', 'notifications.'];
 
+    /** صفحات خارج بوابة الصلاحيات: تُفتح للمراجع فقط إذا مُنح شاشتها (null = ممنوعة دائماً) */
+    private const AUDITOR_PAGES = [
+        'documents.' => 'documents', 'maint.' => 'maint', 'recalls.' => 'recall', 'jobs.' => null, 'workcards.' => 'documents',
+        'qms.' => 'documents', 'library' => 'documents', 'client.' => null, 'tasks.' => null, 'daily.' => null, 'kpi.' => null,
+    ];
+
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
@@ -41,6 +47,14 @@ class EnsureAccountActive
                 $allowed = collect(self::AUDITOR_WRITES)->contains(fn ($p) => $name === $p || (str_ends_with($p, '.') && str_starts_with($name, $p)));
                 if (! $request->isMethod('GET') && ! $request->isMethod('HEAD') && ! $allowed) {
                     abort(403, 'حساب المراجع الخارجي للاطلاع فقط. الملاحظات تُكتب في شاشة المراجعة.');
+                }
+                foreach (self::AUDITOR_PAGES as $prefix => $module) {
+                    if ($name === $prefix || (str_ends_with($prefix, '.') && str_starts_with($name, $prefix))) {
+                        if (! $module || ! \App\Support\Access::auditorCan($user, $module)) {
+                            abort(403, 'هذه الشاشة خارج نطاق المراجعة المحدد لحسابك.');
+                        }
+                        break;
+                    }
                 }
                 if (! $request->ajax() && ! $request->expectsJson() && ! str_starts_with($name, 'notifications.')) {
                     try {

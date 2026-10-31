@@ -101,8 +101,8 @@ class GlobalSearch
         $groups = [
             ['key' => 'pages',   'title' => 'الشاشات',              'items' => self::pages($u, $words)],
             ['key' => 'records', 'title' => 'السجلات',              'items' => self::records($u, $q, $words)],
-            ['key' => 'docs',    'title' => 'الإجراءات والوثائق',    'items' => self::docs($u, $words)],
-            ['key' => 'forms',   'title' => 'نماذج الإجراءات',       'items' => self::sopForms($u, $words)],
+            ['key' => 'docs',    'title' => 'الإجراءات والوثائق',    'items' => Audits::isAuditor($u) && ! Access::auditorCan($u, 'documents') ? [] : self::docs($u, $words)],
+            ['key' => 'forms',   'title' => 'نماذج الإجراءات',       'items' => Audits::isAuditor($u) && ! Access::auditorCan($u, 'documents') ? [] : self::sopForms($u, $words)],
             ['key' => 'assets',  'title' => 'الأجهزة وعقود الصيانة', 'items' => self::maint($u, $words)],
             ['key' => 'recalls', 'title' => 'عمليات السحب',          'items' => self::recalls($u, $words)],
             ['key' => 'users',   'title' => 'المستخدمون',           'items' => self::users($u, $words)],
@@ -273,6 +273,7 @@ class GlobalSearch
         return [
             ['مهام اليوم', 'قائمة المهام اليومية وقراءات الحرارة', 'daily.index', [], 'مهام يوميه تودو متاخر', null, false],
             ['الاستدعاء والسحب', 'منشورات السحب وإبلاغ العملاء وإقرارات الصيدليات', 'recalls.index', [], 'سحب استدعاء منشور تشغيله مسحوب اقرار صيدليه SH-010', 'recall', false],
+            ['المراجعات الخارجية', 'استشاري أو جهة مستقلة أو هيئة الدواء: الإدارات والملاحظات والتقرير والإجراءات', 'audits.index', [], 'مراجعه خارجيه استشاري تفتيش هيئه الدواء اوديت تقرير ملاحظات SH-012 SH-025', 'audit', false],
             ['بطاقات العمل المبسطة', 'خطوات كل وظيفة من الإجراءات للطباعة', 'workcards.index', [], 'بطاقه عمل مبسطه خطوات عامل نظافه محضر سائق امن', null, false],
             ['بطاقة عملي', 'بطاقتي المبسطة للطباعة', 'workcards.mine', [], 'بطاقتي بطاقه عملي', null, false],
             ['المهام المكلف بها', 'تكليف موظف بمهمة · مهامي · كلفت بها', 'tasks.index', [], 'مهام مهمه تكليف تاسك عاجل مهم موعد', null, false],
@@ -331,6 +332,12 @@ class GlobalSearch
             }
             if ($admin && ! ($route === 'jobs.index' ? $hr : $u->isClientAdmin())) {
                 continue;
+            }
+            if ($module === 'audit' && ! Audits::canManage($u) && ! Audits::isAuditor($u)) {
+                continue;
+            }
+            if ($module === 'audit') {
+                $module = null;
             }
             if ($module === 'recall' ? ! Recalls::canWork($u) : ($module === 'maint' ? ! Maintenance::canView($u) : ($module && ! Access::can($u, $module, 'view')))) {
                 continue;

@@ -150,11 +150,24 @@ class Access
         if (! $u || ! $u->tenant_id) return 'none';
         if (self::full($u)) return 'use';
         $u->loadMissing('role');
-        // المراجع الخارجي: اطلاع على كل الشاشات (عدا تقييمات الأداء الشخصية)
-        if ($u->role?->key === 'external_auditor') return $module === 'kpi' ? 'none' : 'view';
+        // المراجع الخارجي: اطلاع فقط على الشاشات التي حددتها إدارة الجودة له (نطاق المراجعة) · تقييمات الأداء أبداً
+        if ($u->role?->key === 'external_auditor') return self::auditorCan($u, $module) ? 'view' : 'none';
 
         return self::overrides($u->tenant_id)['u'][$u->id][$module]
             ?? self::roleLevel($u->tenant_id, $u->role_id, $u->role?->key, $module);
+    }
+
+    /** شاشات خارج مصفوفة الصلاحيات يُمنح لها المراجع الخارجي (الصيانة والأجهزة · السحب) */
+    public const AUDITOR_EXTRA = ['maint' => ['الصيانة والأجهزة', 'SH-023 · SH-017'], 'recall' => ['الاستدعاء والسحب', 'SH-010']];
+
+    /** هل منحت إدارة الجودة المراجع الخارجي الاطلاع على هذه الشاشة؟ */
+    public static function auditorCan(User $u, string $module): bool
+    {
+        if ($module === 'kpi' || ! $u->tenant_id) {
+            return false;
+        }
+
+        return in_array(self::overrides($u->tenant_id)['u'][$u->id][$module] ?? 'none', ['view', 'use'], true);
     }
 
     public static function userOverride(User $u, string $module): ?string

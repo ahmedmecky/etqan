@@ -68,6 +68,45 @@ class Audits
         'المستحضرات الخاضعة للرقابة' => 'SH-032',
     ];
 
+    /** الشاشة ← الإجراءات المرتبطة بها (لاقتراح نطاق اطلاع المراجع من الإدارات المختارة) */
+    public const SCREEN_SOPS = [
+        'receiving' => ['SH-001'], 'temperature' => ['SH-030', 'SH-023'], 'inventory' => ['SH-016'], 'ordercheck' => ['SH-004', 'SH-028'],
+        'deviation' => ['SH-008', 'SH-009', 'SH-027'], 'complaint' => ['SH-007', 'SH-011'], 'inspection' => ['SH-012'], 'documents' => ['SH-014'],
+        'training' => ['SH-015', 'SH-021', 'SH-022'], 'meetings' => ['SH-013', 'SH-034'], 'maint' => ['SH-023', 'SH-017', 'SH-018', 'SH-026'],
+        'recall' => ['SH-010', 'SH-002', 'SH-020'],
+    ];
+
+    /** كل الشاشات التي يمكن منحها للمراجع: [key => [الاسم، الإجراء]] (بدون تقييم الأداء) */
+    public static function screens(): array
+    {
+        $out = [];
+        foreach (Access::MODULES as $k => $m) {
+            if ($k !== 'kpi') {
+                $out[$k] = [$m[0], $m[1]];
+            }
+        }
+
+        return $out + Access::AUDITOR_EXTRA;
+    }
+
+    /** الشاشات المقترحة من إجراءات الإدارات المضافة للمراجعة */
+    public static function suggestedScreens(Audit $a): array
+    {
+        $sops = $a->areas->pluck('sops')->filter()->flatMap(fn ($s) => preg_split('/\s*[·,،]\s*/u', $s))->map('trim')->all();
+
+        return array_keys(array_filter(self::SCREEN_SOPS, fn ($list) => (bool) array_intersect($list, $sops)));
+    }
+
+    /** الشاشات الممنوحة حالياً لحساب المراجع */
+    public static function grantedScreens(?User $acc): array
+    {
+        if (! $acc) {
+            return [];
+        }
+
+        return \App\Models\PermissionOverride::query()->where('user_id', $acc->id)->whereIn('level', ['view', 'use'])->pluck('module')->all();
+    }
+
     /** فتح المراجعة وتعديلها والرد عليها وإغلاقها */
     public static function canManage(User $u): bool
     {

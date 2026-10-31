@@ -107,6 +107,8 @@ class AuditController extends Controller
             'email'        => [$acc ? 'nullable' : 'required', 'email', 'max:160', Rule::unique('users', 'email')->ignore($acc?->id)],
             'password'     => [$acc ? 'nullable' : 'required', 'string', 'min:8', 'regex:/[A-Za-z]/', 'regex:/[0-9]/'],
             'access_until' => ['required', 'date', 'after_or_equal:today'],
+            'screens'      => ['nullable', 'array'],
+            'screens.*'    => [Rule::in(array_keys(Audits::screens()))],
         ], [
             'name.required' => 'اكتب اسم المراجع.', 'email.required' => 'اكتب البريد الإلكتروني (اسم الدخول).', 'email.unique' => 'هذا البريد مستخدم لحساب آخر.',
             'password.required' => 'اكتب كلمة مرور مبدئية.', 'password.min' => 'كلمة المرور ٨ أحرف على الأقل.', 'password.regex' => 'كلمة المرور حروف إنجليزية وأرقام.',
@@ -127,6 +129,17 @@ class AuditController extends Controller
                 + (! empty($v['password']) ? ['password' => $v['password']] : []))->save();
             $msg = "تم تحديث حساب المراجع حتى {$v['access_until']}" . (! empty($v['password']) ? ' وتغيير كلمة المرور.' : '.');
         }
+        // نطاق الاطلاع: الشاشات المحددة فقط (الباقي مخفي)
+        $chosen = $v['screens'] ?? [];
+        foreach (array_keys(Audits::screens()) as $m) {
+            \App\Models\PermissionOverride::updateOrCreate(
+                ['tenant_id' => $u->tenant_id, 'role_id' => null, 'user_id' => $acc->id, 'module' => $m],
+                ['level' => in_array($m, $chosen, true) ? 'view' : 'none', 'updated_by' => $u->id]
+            );
+        }
+        \App\Support\Access::forget();
+        $msg .= ' نطاق الاطلاع: ' . (count($chosen) ? count($chosen) . ' شاشة.' : 'شاشة المراجعة فقط.');
+
         if ($audit->status === 'plan') {
             $audit->update(['status' => 'fieldwork']);
         }

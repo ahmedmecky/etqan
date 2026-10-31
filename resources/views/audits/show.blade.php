@@ -24,6 +24,9 @@
         · <span class="ltr">{{ $a->start_date->format('Y-m-d') }}</span> ← <span class="ltr">{{ $a->end_date->format('Y-m-d') }}</span> · <span class="ltr">{{ \App\Support\Audits::FORM }}</span></p>
     </div>
     <div class="actions">
+      @if ($write)
+        <a href="{{ route('audits.show', [$a, 'tab' => 'report']) }}#send" class="btn">إرسال التقرير ←</a>
+      @endif
       <a href="{{ route('audits.print', $a) }}" target="_blank" class="btn ghost">طباعة {{ \App\Support\Audits::reportTitle($a->type) }}</a>
       @if ($a->file_path)<a href="{{ route('audits.file', $a) }}" target="_blank" class="btn ghost small">تقرير الجهة المرفق</a>@endif
     </div>
@@ -89,7 +92,7 @@
                 @if ($acc->last_login_at) · آخر دخول <span class="ltr">{{ $acc->last_login_at->timezone('Africa/Cairo')->format('Y-m-d H:i') }}</span>@endif
               </p>
             @else
-              <p class="hint" style="margin-top:0">حساب مؤقت: يرى كل شاشات النظام وسجلاته للاطلاع فقط (عدا تقييمات الأداء)، ويكتب ملاحظاته في هذه المراجعة فقط.
+              <p class="hint" style="margin-top:0">حساب مؤقت: يرى للاطلاع فقط الشاشات التي تحددها أدناه، ويكتب ملاحظاته في هذه المراجعة فقط.
                 كل صفحة يفتحها تُسجل، ومطبوعاته عليها علامة «نسخة للمراجع الخارجي»، وينتهي تلقائياً في التاريخ المحدد.</p>
             @endif
             <form method="POST" action="{{ route('audits.account', $a) }}">
@@ -101,6 +104,18 @@
                 @endunless
                 <label>{{ $acc ? 'كلمة مرور جديدة (اختياري)' : 'كلمة مرور مبدئية' }} <input type="text" name="password" class="ltr" autocomplete="off"></label>
                 <label>الحساب صالح حتى <input type="date" name="access_until" required value="{{ old('access_until', $acc?->access_until?->format('Y-m-d') ?? $a->end_date->copy()->addDays(7)->format('Y-m-d')) }}"></label>
+              </div>
+              @php
+                $granted = $acc ? \App\Support\Audits::grantedScreens($acc) : \App\Support\Audits::suggestedScreens($a);
+              @endphp
+              <div style="margin-top:12px">
+                <b style="font-size:13.5px">نطاق الاطلاع: الشاشات التي يراها المراجع (اطلاع فقط)</b>
+                <p class="hint" style="margin:2px 0 6px">{{ $acc ? 'المحدد حالياً لحسابه.' : 'مقترح من إجراءات الإدارات المضافة للمراجعة.' }} غير المحدد مخفي تماماً عنه. تقييمات الأداء والمستخدمون والإعدادات لا تظهر له أبداً.</p>
+                <div class="grades">
+                  @foreach (\App\Support\Audits::screens() as $k => [$name, $sop])
+                    <label><input type="checkbox" name="screens[]" value="{{ $k }}" @checked(in_array($k, old('screens', $granted), true))> {{ $name }} <span class="hint ltr">{{ $sop }}</span></label>
+                  @endforeach
+                </div>
               </div>
               <div class="actions" style="margin-top:10px">
                 <button type="submit" class="btn small">{{ $acc ? 'تحديث الحساب' : 'إنشاء الحساب' }}</button>
@@ -218,7 +233,7 @@
         <div class="box">
           <h2>الخلاصة والتقييم العام</h2>
           @if ($write)
-            <form method="POST" action="{{ route('audits.submit', $a) }}">
+            <form method="POST" action="{{ route('audits.submit', $a) }}" id="send">
               @csrf
               <div class="grades" style="margin-bottom:10px">
                 @foreach (\App\Support\Audits::RATINGS as $k => $lbl)<label><input type="radio" name="rating" value="{{ $k }}" @checked(old('rating', $a->rating) === $k)> {{ $lbl }}</label>@endforeach
