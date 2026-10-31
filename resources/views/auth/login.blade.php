@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>تسجيل الدخول · إتقان</title>
+<title>{{ $admin ? 'دخول إدارة النظام' : 'تسجيل الدخول' }} · إتقان</title>
+@if ($admin)<meta name="robots" content="noindex, nofollow">@endif
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 110'%3E%3Cpath d='M50 4 L90 18 V52 C90 78 72 96 50 106 C28 96 10 78 10 52 V18 Z' fill='%230f5e5a'/%3E%3Cpath d='M34 24 H66 V34 H44 V41 H60 V50 H44 V58 H66 V68 H34 Z' fill='white'/%3E%3Cpolyline points='43,79 48,84 57,75' fill='none' stroke='%23e0b24a' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,13 +26,16 @@
       <div class="sl">إتقان في كل خطوة</div>
     </div>
 
-    <h1>تسجيل الدخول</h1>
+    <h1>{{ $admin ? 'دخول إدارة النظام' : 'تسجيل الدخول' }}</h1>
+    @if ($admin)
+      <p style="text-align:center;font-size:13px;color:#8a5a00;margin:-6px 0 12px">لمدير النظام فقط · العملاء يدخلون من صفحة الدخول المعتادة</p>
+    @endif
 
     @if (session('status'))
       <div class="alert ok">{{ session('status') }}</div>
     @endif
 
-    <form method="POST" action="{{ route('login.attempt') }}" novalidate>
+    <form method="POST" action="{{ $admin ? route('admin.login.attempt') : route('login.attempt') }}" novalidate>
       @csrf
 
       <div class="field">

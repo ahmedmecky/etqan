@@ -48,6 +48,10 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
     Route::post('/login', [LoginController::class, 'login'])->name('login.attempt');
+
+    // دخول مدير النظام: رابط منفصل (مثل إمداد) · غير ظاهر في أي صفحة
+    Route::get('/admin-login', [LoginController::class, 'showAdmin'])->name('admin.login');
+    Route::post('/admin-login', [LoginController::class, 'adminLogin'])->middleware('throttle:10,1')->name('admin.login.attempt');
 });
 
 // رابط شكاوى الصيدليات (بدون تسجيل دخول)

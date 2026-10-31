@@ -16,7 +16,7 @@ class JobLibrary
 {
     public const DEPTS = [
         'MG' => 'الإدارة', 'PH' => 'الإدارة الصيدلية', 'QA' => 'إدارة الجودة', 'WH' => 'المخازن', 'DS' => 'التوزيع والحركة', 'SL' => 'المبيعات',
-        'CM' => 'التجاري والمشتريات', 'FN' => 'الحسابات', 'HR' => 'الموارد البشرية',
+        'CM' => 'التجاري والمشتريات', 'FN' => 'الحسابات', 'HR' => 'الموارد البشرية', 'SF' => 'السلامة والأمن',
     ];
 
     /** الوظيفة المقترحة لكل دور نظام (عند إنشاء مستخدم) */
@@ -27,7 +27,7 @@ class JobLibrary
         'driver' => 'JD-DS-01', 'distribution_supervisor' => 'JD-DS-03', 'fleet_supervisor' => 'JD-DS-04',
         'telesales' => 'JD-SL-01', 'wholesale_sales_manager' => 'JD-SL-03', 'retail_sales_supervisor' => 'JD-SL-04', 'sales_rep' => 'JD-SL-05',
         'commercial_director' => 'JD-CM-01', 'data_entry' => 'JD-CM-02', 'purchasing_officer' => 'JD-CM-03',
-        'accountant' => 'JD-FN-01', 'accounts_manager' => 'JD-FN-06', 'hr_manager' => 'JD-HR-01', 'hr_officer' => 'JD-HR-02',
+        'accountant' => 'JD-FN-01', 'accounts_manager' => 'JD-FN-06', 'hr_manager' => 'JD-HR-01', 'hr_officer' => 'JD-HR-02', 'security' => 'JD-SF-01',
     ];
 
     private static ?array $jobs = null;
